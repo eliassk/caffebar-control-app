@@ -1,0 +1,15 @@
+[Unit]
+Description=CoffeeBar Control Panel
+After=network.target
+
+[Service]
+Type=simple
+User=coffeebar
+WorkingDirectory=/opt/coffeebar
+EnvironmentFile=/opt/coffeebar/backend/.env
+ExecStart=/usr/bin/node backend/dist/index.js
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

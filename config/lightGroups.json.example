@@ -1,0 +1,21 @@
+{
+  "groups": [
+    {
+      "id": "room",
+      "label": "Main room",
+      "entities": [
+        "light.room_ceiling",
+        "light.room_spot",
+        "light.room_ambient"
+      ]
+    },
+    {
+      "id": "counter",
+      "label": "Counter",
+      "entities": [
+        "light.counter_main",
+        "light.counter_spot"
+      ]
+    }
+  ]
+}

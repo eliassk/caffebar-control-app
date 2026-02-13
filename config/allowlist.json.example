@@ -1,0 +1,25 @@
+{
+  "entities": {
+    "exact": [
+      "light.example_1",
+      "light.example_2",
+      "sensor.temperature",
+      "climate.thermostat",
+      "weather.forecast_home"
+    ],
+    "patterns": [
+      "switch.coffee_*",
+      "light.coffee_*"
+    ]
+  },
+  "services": [
+    { "domain": "light", "service": "turn_on" },
+    { "domain": "light", "service": "turn_off" },
+    { "domain": "light", "service": "toggle" },
+    { "domain": "climate", "service": "set_temperature" },
+    { "domain": "climate", "service": "set_hvac_mode" },
+    { "domain": "climate", "service": "set_preset_mode" },
+    { "domain": "climate", "service": "turn_off" },
+    { "domain": "script", "service": "turn_on", "optional": true }
+  ]
+}

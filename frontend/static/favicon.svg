@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <rect width="32" height="32" rx="6" fill="#2d1f0f"/>
+  <!-- Simple coffee cup -->
+  <path d="M8 12h11v8c0 1.5-1 2.5-2.5 2.5h-6c-1.5 0-2.5-1-2.5-2.5v-8z" fill="#c48950"/>
+  <rect x="7" y="11" width="13" height="2" rx="1" fill="#a66b3a"/>
+  <path d="M19 13.5h2c1.2 0 2 .9 2 2.2s-.8 2.2-2 2.2h-2" fill="none" stroke="#c48950" stroke-width="1.2" stroke-linecap="round"/>
+</svg>

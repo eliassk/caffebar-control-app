@@ -1,0 +1,83 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  font-family: "DM Sans", system-ui, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  user-select: none;
+  overflow: hidden;
+  background: #f2ede6;
+}
+
+.dark body {
+  background: #1c1917;
+}
+
+/* Temperature graph – dark mode colors */
+:root {
+  --graph-outside: #9ca3af;
+  --graph-grid: #e5e7eb;
+  --graph-axis: #9ca3af;
+}
+.dark {
+  --graph-outside: #94a3b8;
+  --graph-grid: #4b5563;
+  --graph-axis: #94a3b8;
+}
+
+#svelte {
+  min-height: 100%;
+}
+
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  touch-action: none; /* Allow thumb drag on touch devices */
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  background: #e85d2e;
+  cursor: pointer;
+  border: 0;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+}
+.dark input[type="range"]::-webkit-slider-thumb {
+  box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  background: #e85d2e;
+  cursor: pointer;
+  border: 0;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+}
+.dark input[type="range"]::-moz-range-thumb {
+  box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+}
+
+input[type="range"].hue-slider::-webkit-slider-runnable-track {
+  height: 0.75rem;
+  border-radius: 9999px;
+  background: linear-gradient(to right, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000);
+}
+input[type="range"].color-slider::-webkit-slider-thumb {
+  margin-top: -0.25rem; /* center 1rem thumb on 0.75rem track */
+}
+input[type="range"].hue-slider::-moz-range-track {
+  height: 0.75rem;
+  border-radius: 9999px;
+  background: linear-gradient(to right, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000);
+}
+input[type="range"].color-slider::-moz-range-thumb {
+  margin-top: -0.25rem;
+}

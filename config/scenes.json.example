@@ -1,0 +1,24 @@
+{
+  "scenes": [
+    {
+      "id": "example-scene-id",
+      "name": "Standard",
+      "entities": [
+        { "entity_id": "light.room_ceiling", "state": "on" },
+        { "entity_id": "light.room_spot", "state": "on", "attributes": { "brightness": 200 } },
+        { "entity_id": "light.counter_main", "state": "off" }
+      ],
+      "icon": "sun",
+      "color": "#eab308"
+    },
+    {
+      "id": "another-scene-id",
+      "name": "Blackout",
+      "entities": [
+        { "entity_id": "light.room_ceiling", "state": "off" },
+        { "entity_id": "light.room_spot", "state": "off" }
+      ],
+      "icon": "moon"
+    }
+  ]
+}

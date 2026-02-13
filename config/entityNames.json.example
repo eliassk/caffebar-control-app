@@ -1,0 +1,16 @@
+{
+  "exact": {
+    "light.example_1": "Custom display name",
+    "sensor.temperature": "Room temperature"
+  },
+  "strip_prefix": [
+    {
+      "pattern": "light.2_17_*",
+      "prefix": "[2.17] Kaffebar "
+    },
+    {
+      "pattern": "light.kaffebar_*",
+      "prefix": "Kaffebar "
+    }
+  ]
+}

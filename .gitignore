@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+backend/dist/
+backend/.env
+frontend/build/
+frontend/.svelte-kit/
+
+# Environment (secrets)
+.env
+.env.local
+.env.*.local
+
+# Config (user-specific, use .example files as templates)
+config/allowlist.json
+config/lightGroups.json
+config/entityNames.json
+config/scenes.json
+
+# Runtime data (user settings, scenes)
+data/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Vite
+frontend/node_modules/.vite/
