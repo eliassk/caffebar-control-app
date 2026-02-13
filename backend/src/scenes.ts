@@ -1,3 +1,10 @@
+/**
+ * Scene management — CRUD operations and scene application.
+ *
+ * Scenes are stored in `data/scenes.json`. On first load the module
+ * checks for a legacy `config/scenes.json` and migrates it.
+ * Saves use atomic write (tmp + rename) to prevent corruption.
+ */
 import { readFileSync, writeFileSync, renameSync, mkdirSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -123,6 +130,11 @@ export function getScene(id: string): Scene | null {
   return loadScenes().find((s) => s.id === id) ?? null;
 }
 
+/**
+ * Apply a scene: iterate over its entities and call the appropriate
+ * HA services (turn_on/turn_off with attributes for lights, set_hvac_mode
+ * for climate). Runs in demo mode when HA is not configured.
+ */
 export async function applyScene(sceneId: string): Promise<void> {
   const scene = getScene(sceneId);
   if (!scene) throw new Error("Scene not found");

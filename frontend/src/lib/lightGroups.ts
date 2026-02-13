@@ -1,3 +1,11 @@
+/**
+ * Light grouping logic.
+ *
+ * Uses the light group configuration from the backend
+ * (config/lightGroups.json) to partition light entities into
+ * named groups. Entities not matching any group go into "other".
+ * Patterns follow the same simple `*` glob as the allowlist.
+ */
 import type { CoffeeEntity } from "$lib/api";
 
 export interface LightGroupConfig {

@@ -2,33 +2,9 @@
   import { onMount } from "svelte";
   import { t } from "$lib/i18n";
   import {
-    Coffee,
-    Home,
-    Lightbulb,
-    BarChart3,
-    Sun,
-    Flame,
-    Menu,
-    Thermometer,
-    Loader2,
-    Settings,
-    Plus,
-    Trash2,
-    CheckSquare,
-    Square,
-    ChevronUp,
-    ChevronDown,
-    Moon,
-    Monitor,
-    Save,
-    Play,
-    DoorOpen,
-    DoorClosed,
-    Sparkles,
-    Zap,
+    Coffee, Home, Lightbulb, BarChart3, Sun, Flame, Menu,
+    Thermometer, Settings, Play,
   } from "lucide-svelte";
-  import { customWelcome } from "$lib/settingsStore";
-  import { checklistItems, checklistState, checklistWithState, refreshChecklistState } from "$lib/checklistStore";
   import {
     fetchEntities,
     fetchLightGroupsConfig,
@@ -46,6 +22,7 @@
     type Scene,
     type SceneEntity,
   } from "$lib/api";
+  import type { ClimateAttributes } from "$lib/types";
   import SensorTempCard from "$lib/cards/SensorTempCard.svelte";
   import SensorMotionCard from "$lib/cards/SensorMotionCard.svelte";
   import SensorGenericCard from "$lib/cards/SensorGenericCard.svelte";
@@ -57,37 +34,19 @@
   import SwitchCard from "$lib/cards/SwitchCard.svelte";
   import TemperatureDetailModal from "$lib/TemperatureDetailModal.svelte";
   import TemperatureGraphCard from "$lib/TemperatureGraphCard.svelte";
+  import Modal from "$lib/Modal.svelte";
   import { groupLights } from "$lib/lightGroups";
-  import { theme } from "$lib/themeStore";
-  import { pinStore } from "$lib/pinStore";
-  import PinSetupModal from "$lib/PinSetupModal.svelte";
-  import PinLockScreen from "$lib/PinLockScreen.svelte";
+  import { refreshChecklistState } from "$lib/checklistStore";
+  import { SCENE_ICON_KEYS, SCENE_ICONS, SCENE_COLORS, getSceneIcon, safeColor } from "$lib/sceneHelpers";
+  import OverviewView from "$lib/views/OverviewView.svelte";
+  import SettingsView from "$lib/views/SettingsView.svelte";
 
-  const SCENE_ICONS: Record<string, typeof Coffee> = {
-    coffee: Coffee,
-    home: Home,
-    sun: Sun,
-    moon: Moon,
-    lightbulb: Lightbulb,
-    flame: Flame,
-    doorOpen: DoorOpen,
-    doorClosed: DoorClosed,
-    sparkles: Sparkles,
-    zap: Zap,
-    play: Play,
-  };
-  const SCENE_ICON_KEYS = Object.keys(SCENE_ICONS);
-  const SCENE_COLORS = [
-    "#3b82f6", "#22c55e", "#eab308", "#f97316", "#ef4444", "#ec4899",
-    "#8b5cf6", "#06b6d4", "#84cc16", "#64748b",
-  ];
-  function getSceneIcon(icon?: string | null) {
-    return (icon && SCENE_ICONS[icon]) || Play;
-  }
-
+  // ─── Polling & navigation constants ───────────────────────────────
+  /** How often to poll entities (ms). Keeps UI in sync when SSE lags. */
   const POLL_MS = 3000;
   type View = "overview" | "lighting" | "temperature" | "hvac" | "settings";
 
+  // ─── Shared state ─────────────────────────────────────────────────
   let entities: CoffeeEntity[] = [];
   let lightGroupsConfig: LightGroupConfig[] = [];
   let online = true;
@@ -100,6 +59,10 @@
   let scenes: Scene[] = [];
   let sceneBusy: string | null = null;
   let sidebarOpen = false;
+  let settingsUnlocked = false;
+  let appVersion = "";
+
+  // Scene modal state
   let showSaveSceneModal = false;
   let saveSceneNameInput = "";
   let saveSceneIconInput = "";
@@ -109,11 +72,8 @@
   let editSceneIconInput = "";
   let editSceneColorInput = "";
   let showDeleteSceneConfirm: Scene | null = null;
-  let showPinSetupModal = false;
-  let pinSetupMode: "set" | "change" | "remove" = "set";
-  let settingsUnlocked = false;
-  let appVersion = "";
 
+  // ─── Derived entity groups ────────────────────────────────────────
   $: tempSensors = entities.filter(
     (e) =>
       e.domain === "sensor" &&
@@ -134,6 +94,8 @@
       !motionSensors.includes(e)
   );
   $: climate = entities.filter((e) => e.domain === "climate");
+
+  /** Detect floor-warming climate entities by id/name keywords. */
   function isFloorWarming(e: CoffeeEntity): boolean {
     const name = String((e.attributes as Record<string, unknown>).friendly_name ?? "").toLowerCase();
     const id = e.entity_id.toLowerCase();
@@ -146,8 +108,8 @@
   $: climateHvac = climate.filter((e) => !isFloorWarming(e));
   $: lights = entities.filter((e) => e.domain === "light");
   $: switches = entities.filter((e) => e.domain === "switch");
-
   $: lightsOn = lights.filter((e) => e.state === "on").length;
+
   function isOutsideTemp(e: CoffeeEntity): boolean {
     const name = String((e.attributes as Record<string, unknown>).friendly_name ?? "");
     return /outside|outdoor|external/i.test(e.entity_id) || /outside|outdoor|external/i.test(name);
@@ -162,30 +124,42 @@
   $: primaryTempValue = primaryTemp && primaryTemp.state !== "unavailable" && primaryTemp.state !== "unknown" ? primaryTemp.state : null;
   $: primaryHvac = climateHvac[0] ?? null;
   $: primaryFloor = climateFloor[0] ?? null;
-  $: hvacState = primaryHvac
-    ? (() => {
-        const attrs = primaryHvac.attributes as Record<string, unknown>;
-        const presetModes = attrs.preset_modes as string[] | undefined;
-        const presetMode = attrs.preset_mode as string | undefined;
-        if (Array.isArray(presetModes) && presetModes.length > 0) {
-          const p = String(presetMode ?? "").trim();
-          return p === "none" || p === "" ? t.modeOff : presetMode;
-        }
-        if (primaryHvac.state === "off") return t.modeOff;
-        if (primaryHvac.state === "auto") return t.modeAuto;
-        if (primaryHvac.state === "optimal") return t.modeOptimal;
-        if (primaryHvac.state === "comfort") return t.modeComfort;
-        return primaryHvac.state;
-      })()
-    : null;
-  $: hvacTargetTemp = primaryHvac && typeof (primaryHvac.attributes as Record<string, unknown>)?.temperature === "number"
-    ? (primaryHvac.attributes as Record<string, unknown>).temperature as number
-    : null;
-  $: floorIsOn = primaryFloor && ((primaryFloor.attributes as Record<string, unknown>).hvac_action === "heating" || primaryFloor.state === "heat" || primaryFloor.state === "heating");
-  $: floorTargetTemp = primaryFloor && typeof (primaryFloor.attributes as Record<string, unknown>)?.temperature === "number"
-    ? (primaryFloor.attributes as Record<string, unknown>).temperature as number
-    : null;
 
+  /** Derive a human-readable HVAC state label for badges. */
+  function deriveHvacState(entity: CoffeeEntity | null): string | null | undefined {
+    if (!entity) return null;
+    const attrs = entity.attributes as ClimateAttributes;
+    if (Array.isArray(attrs.preset_modes) && attrs.preset_modes.length > 0) {
+      const p = String(attrs.preset_mode ?? "").trim();
+      return p === "none" || p === "" ? t.modeOff : attrs.preset_mode;
+    }
+    if (entity.state === "off") return t.modeOff;
+    if (entity.state === "auto") return t.modeAuto;
+    if (entity.state === "optimal") return t.modeOptimal;
+    if (entity.state === "comfort") return t.modeComfort;
+    return entity.state;
+  }
+  $: hvacState = deriveHvacState(primaryHvac);
+  $: hvacTargetTemp = primaryHvac && typeof (primaryHvac.attributes as ClimateAttributes)?.temperature === "number"
+    ? (primaryHvac.attributes as ClimateAttributes).temperature ?? null : null;
+  $: floorIsOn = primaryFloor && ((primaryFloor.attributes as ClimateAttributes).hvac_action === "heating" || primaryFloor.state === "heat" || primaryFloor.state === "heating");
+  $: floorTargetTemp = primaryFloor && typeof (primaryFloor.attributes as ClimateAttributes)?.temperature === "number"
+    ? (primaryFloor.attributes as ClimateAttributes).temperature ?? null : null;
+
+  // ─── View flags ───────────────────────────────────────────────────
+  $: showMotionAndOther = view === "temperature";
+  $: showClimate = view === "hvac";
+  $: showLights = view === "lighting";
+  $: showPower = view === "lighting";
+  $: showTempView = view === "temperature";
+  $: showOverviewWelcome = view === "overview";
+  $: showSettings = view === "settings";
+  $: if (view !== "settings") settingsUnlocked = false;
+  $: lightGroups = groupLights(lights, lightGroupsConfig);
+
+  // ─── Helpers ──────────────────────────────────────────────────────
+
+  /** Strip HTML-like error text so we don't render HA's HTML error pages. */
   function sanitizeError(msg: string): string {
     const trimmed = msg.trim();
     if (trimmed.length > 280 || trimmed.startsWith("<!") || trimmed.toLowerCase().includes("<html")) {
@@ -193,6 +167,29 @@
     }
     return trimmed;
   }
+
+  /** Check if a light supports brightness (dimmer or colour modes). */
+  function supportsBrightness(a: Record<string, unknown>): boolean {
+    const modes = a.supported_color_modes as string[] | undefined;
+    if (Array.isArray(modes)) {
+      return modes.some((m) => m === "brightness" || m === "color_temp" || m === "hs" || m === "rgb" || m === "rgbw" || m === "rgbww" || m === "xy");
+    }
+    return a.brightness != null;
+  }
+
+  function isDimmerLight(entity: CoffeeEntity): boolean {
+    const a = entity.attributes as Record<string, unknown>;
+    return supportsBrightness(a) && !a.rgb_color && !a.color_temp && !entity.entity_id.toLowerCase().includes("rgbw");
+  }
+
+  function isRGBWLight(entity: CoffeeEntity): boolean {
+    const a = entity.attributes as Record<string, unknown>;
+    const modes = a.supported_color_modes as string[] | undefined;
+    if (Array.isArray(modes) && modes.length === 1 && modes[0] === "onoff") return false;
+    return a.rgb_color != null || a.color_temp != null || entity.entity_id.toLowerCase().includes("rgbw");
+  }
+
+  // ─── Data loading ─────────────────────────────────────────────────
 
   async function load() {
     try {
@@ -220,22 +217,18 @@
   onMount(() => {
     load();
     fetchLightGroupsConfig().then((cfg) => (lightGroupsConfig = cfg));
-    loadScenes();
+    loadScenesData();
     checkHealth();
     refreshChecklistState();
     const streamUnsub = subscribeEntitiesStream(
-      (data) => {
-        entities = data;
-        lastError = null;
-        online = true;
-      },
-      () => {
-        /* stream error: fall back to polling */
-      }
+      (data) => { entities = data; lastError = null; online = true; },
+      () => { /* stream error: fall back to polling */ }
     );
     const pollInterval = setInterval(load, POLL_MS);
-    const healthInterval = setInterval(checkHealth, 10000);
-    const checklistInterval = setInterval(refreshChecklistState, 60000);
+    /** Health check interval — also detects demo mode and fetches version. */
+    const healthInterval = setInterval(checkHealth, 10_000);
+    /** Refresh checklist checked-state every minute (auto-resets hourly). */
+    const checklistInterval = setInterval(refreshChecklistState, 60_000);
     return () => {
       streamUnsub();
       clearInterval(pollInterval);
@@ -244,13 +237,14 @@
     };
   });
 
+  // ─── Entity actions ───────────────────────────────────────────────
+
   async function toggle(entity: CoffeeEntity) {
     if (entity.domain !== "switch" && entity.domain !== "light") return;
     toggling = new Set(toggling);
     toggling.add(entity.entity_id);
     try {
       await toggleEntity(entity.entity_id);
-      /* stream pushes updated entities */
     } catch (e) {
       lastError = sanitizeError(e instanceof Error ? e.message : t.errorToggleFailed);
       await load();
@@ -264,11 +258,8 @@
   async function turnOffLightsSwitchesAndHvac() {
     const toTurnOff = [...lights, ...switches].filter((e) => e.state === "on");
     for (const e of toTurnOff) {
-      try {
-        await toggleEntity(e.entity_id);
-      } catch (err) {
-        lastError = sanitizeError(err instanceof Error ? err.message : t.errorToggleFailed);
-      }
+      try { await toggleEntity(e.entity_id); }
+      catch (err) { lastError = sanitizeError(err instanceof Error ? err.message : t.errorToggleFailed); }
     }
     const toTurnOffClimate = climate.filter((e) => e.state !== "off" && e.state !== "unavailable" && e.state !== "unknown");
     for (const e of toTurnOffClimate) {
@@ -278,9 +269,7 @@
         } else {
           await callService("climate", "turn_off", e.entity_id);
         }
-      } catch (err) {
-        lastError = sanitizeError(err instanceof Error ? err.message : t.errorToggleFailed);
-      }
+      } catch (err) { lastError = sanitizeError(err instanceof Error ? err.message : t.errorToggleFailed); }
     }
   }
 
@@ -290,14 +279,14 @@
     await load();
   }
 
-  async function loadScenes() {
-    try {
-      scenes = await fetchScenes();
-    } catch {
-      scenes = [];
-    }
+  // ─── Scene actions ────────────────────────────────────────────────
+
+  async function loadScenesData() {
+    try { scenes = await fetchScenes(); }
+    catch { scenes = []; }
   }
 
+  /** Capture the current light state for saving as a new scene. */
   function captureCurrentState(): SceneEntity[] {
     const result: SceneEntity[] = [];
     for (const e of lights) {
@@ -319,15 +308,16 @@
   async function runScene(scene: Scene) {
     if (sceneBusy) return;
     sceneBusy = scene.id;
-    try {
-      await applyScene(scene.id);
-      /* stream pushes updated entities */
-    } catch (e) {
-      lastError = sanitizeError(e instanceof Error ? e.message : t.errorSceneFailed);
-      await load();
-    } finally {
-      sceneBusy = null;
-    }
+    try { await applyScene(scene.id); }
+    catch (e) { lastError = sanitizeError(e instanceof Error ? e.message : t.errorSceneFailed); await load(); }
+    finally { sceneBusy = null; }
+  }
+
+  function openSaveSceneModal() {
+    saveSceneNameInput = "";
+    saveSceneIconInput = "";
+    saveSceneColorInput = "";
+    showSaveSceneModal = true;
   }
 
   async function saveSceneFromModal() {
@@ -342,17 +332,8 @@
       saveSceneNameInput = "";
       saveSceneIconInput = "";
       saveSceneColorInput = "";
-      await loadScenes();
-    } catch (e) {
-      lastError = sanitizeError(e instanceof Error ? e.message : t.errorSceneFailed);
-    }
-  }
-
-  function openSaveSceneModal() {
-    saveSceneNameInput = "";
-    saveSceneIconInput = "";
-    saveSceneColorInput = "";
-    showSaveSceneModal = true;
+      await loadScenesData();
+    } catch (e) { lastError = sanitizeError(e instanceof Error ? e.message : t.errorSceneFailed); }
   }
 
   function openEditSceneModal(scene: Scene) {
@@ -373,10 +354,8 @@
         color: editSceneColorInput || undefined,
       });
       showEditSceneModal = null;
-      await loadScenes();
-    } catch (e) {
-      lastError = sanitizeError(e instanceof Error ? e.message : t.errorSceneFailed);
-    }
+      await loadScenesData();
+    } catch (e) { lastError = sanitizeError(e instanceof Error ? e.message : t.errorSceneFailed); }
   }
 
   async function replaceSceneWithCurrent() {
@@ -384,92 +363,22 @@
     try {
       await updateScene(showEditSceneModal.id, { entities: captureCurrentState() });
       showEditSceneModal = null;
-      await loadScenes();
-    } catch (e) {
-      lastError = sanitizeError(e instanceof Error ? e.message : t.errorSceneFailed);
-    }
+      await loadScenesData();
+    } catch (e) { lastError = sanitizeError(e instanceof Error ? e.message : t.errorSceneFailed); }
   }
 
   async function confirmDeleteScene() {
     if (!showDeleteSceneConfirm) return;
     const id = showDeleteSceneConfirm.id;
     showDeleteSceneConfirm = null;
-    try {
-      await deleteScene(id);
-      await loadScenes();
-    } catch (e) {
-      lastError = sanitizeError(e instanceof Error ? e.message : t.errorSceneFailed);
-    }
+    try { await deleteScene(id); await loadScenesData(); }
+    catch (e) { lastError = sanitizeError(e instanceof Error ? e.message : t.errorSceneFailed); }
   }
-
-  function supportsBrightness(a: Record<string, unknown>): boolean {
-    const modes = a.supported_color_modes as string[] | undefined;
-    if (Array.isArray(modes)) {
-      return modes.some((m) => m === "brightness" || m === "color_temp" || m === "hs" || m === "rgb" || m === "rgbw" || m === "rgbww" || m === "xy");
-    }
-    return a.brightness != null;
-  }
-  function isDimmerLight(entity: CoffeeEntity): boolean {
-    const a = entity.attributes as Record<string, unknown>;
-    return supportsBrightness(a) && !a.rgb_color && !a.color_temp && !entity.entity_id.toLowerCase().includes("rgbw");
-  }
-  function isRGBWLight(entity: CoffeeEntity): boolean {
-    const a = entity.attributes as Record<string, unknown>;
-    const modes = a.supported_color_modes as string[] | undefined;
-    if (Array.isArray(modes) && modes.length === 1 && modes[0] === "onoff") return false;
-    return a.rgb_color != null || a.color_temp != null || entity.entity_id.toLowerCase().includes("rgbw");
-  }
-
-  $: showMotionAndOther = view === "temperature";
-  $: showClimate = view === "hvac";
-  $: showLights = view === "lighting";
-  $: showPower = view === "lighting";
-  $: showTempView = view === "temperature";
-  $: showOverviewWelcome = view === "overview";
-  $: showSettings = view === "settings";
-  $: if (view !== "settings") settingsUnlocked = false;
-
-  let settingsTitleInput = "";
-  let settingsDescInput = "";
-  let settingsSavedFlash = false;
-  let checklistNewItem = "";
-  let prevShowSettings = false;
-  $: if (showSettings && !prevShowSettings) {
-    settingsTitleInput = ($customWelcome?.title || "").trim() || t.welcomeTitle;
-    settingsDescInput = ($customWelcome?.desc || "").trim() || t.welcomeDesc;
-  }
-  $: prevShowSettings = showSettings;
-
-  function saveCustomWelcome() {
-    customWelcome.set({
-      title: settingsTitleInput.trim() || t.welcomeTitle,
-      desc: settingsDescInput.trim() || t.welcomeDesc,
-    });
-    settingsSavedFlash = true;
-    setTimeout(() => (settingsSavedFlash = false), 2000);
-  }
-
-  function resetCustomWelcome() {
-    customWelcome.set(null);
-    settingsTitleInput = t.welcomeTitle;
-    settingsDescInput = t.welcomeDesc;
-  }
-
-  function addChecklistItem() {
-    const label = checklistNewItem.trim();
-    if (label) {
-      checklistItems.add(label);
-      checklistNewItem = "";
-    }
-  }
-
-  function toggleChecklistItem(id: string) {
-    checklistState.toggle(id);
-  }
-
-  $: lightGroups = groupLights(lights, lightGroupsConfig);
 </script>
 
+<!-- ═══════════════════════════════════════════════════════════════════
+     LAYOUT
+     ═══════════════════════════════════════════════════════════════════ -->
 <div class="flex h-dvh bg-surface-alt dark:bg-stone-900">
   <!-- Backdrop when sidebar open on small screens -->
   <button
@@ -479,7 +388,7 @@
     on:click={() => (sidebarOpen = false)}
   />
 
-  <!-- Left sidebar: drawer on small screens, always visible on lg+ -->
+  <!-- Sidebar -->
   <aside
     class="fixed inset-y-0 left-0 z-40 flex w-52 shrink-0 flex-col border-r border-stone-200/80 dark:border-stone-600 dark:bg-stone-900 bg-surface-alt py-5 pl-4 pr-3 shadow-soft-lg transition-transform duration-200 ease-out lg:relative lg:translate-x-0 lg:shadow-none {sidebarOpen ? 'translate-x-0' : '-translate-x-full'}"
   >
@@ -490,52 +399,29 @@
       <span class="font-display text-lg font-semibold text-stone-800 dark:text-stone-200">{t.appName}</span>
     </div>
     <nav class="mt-8 flex flex-1 flex-col gap-1">
-      <button
-        type="button"
-        class="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition {view === 'overview'
-          ? 'bg-accent/10 text-accent dark:bg-accent/20'
-          : 'text-stone-600 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800 hover:text-stone-800 dark:hover:text-stone-200'}"
-        on:click={() => { view = 'overview'; sidebarOpen = false; }}
-      >
-        <Home class="h-5 w-5 shrink-0" />
-        {t.navOverview}
-      </button>
-      <button
-        type="button"
-        class="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition {view === 'lighting'
-          ? 'bg-accent/10 text-accent dark:bg-accent/20'
-          : 'text-stone-600 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800 hover:text-stone-800 dark:hover:text-stone-200'}"
-        on:click={() => { view = 'lighting'; sidebarOpen = false; }}
-      >
-        <Lightbulb class="h-5 w-5 shrink-0" />
-        {t.navLighting}
-      </button>
-      <button
-        type="button"
-        class="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition {view === 'temperature'
-          ? 'bg-accent/10 text-accent dark:bg-accent/20'
-          : 'text-stone-600 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800 hover:text-stone-800 dark:hover:text-stone-200'}"
-        on:click={() => { view = 'temperature'; sidebarOpen = false; }}
-      >
-        <BarChart3 class="h-5 w-5 shrink-0" />
-        {t.navTemperature}
-      </button>
-      <button
-        type="button"
-        class="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition {view === 'hvac'
-          ? 'bg-accent/10 text-accent dark:bg-accent/20'
-          : 'text-stone-600 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800 hover:text-stone-800 dark:hover:text-stone-200'}"
-        on:click={() => { view = 'hvac'; sidebarOpen = false; }}
-      >
-        <Sun class="h-5 w-5 shrink-0" />
-        {t.navHvac}
-      </button>
+      {#each [
+        { key: "overview", icon: Home, label: t.navOverview },
+        { key: "lighting", icon: Lightbulb, label: t.navLighting },
+        { key: "temperature", icon: BarChart3, label: t.navTemperature },
+        { key: "hvac", icon: Sun, label: t.navHvac },
+      ] as item (item.key)}
+        <button
+          type="button"
+          class="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition {view === item.key
+            ? 'bg-accent/10 text-accent dark:bg-accent/20'
+            : 'text-stone-600 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800 hover:text-stone-800 dark:hover:text-stone-200'}"
+          on:click={() => { view = item.key; sidebarOpen = false; }}
+        >
+          <svelte:component this={item.icon} class="h-5 w-5 shrink-0" />
+          {item.label}
+        </button>
+      {/each}
       <div class="mt-auto pt-4">
         <button
           type="button"
-        class="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition {view === 'settings'
-          ? 'bg-accent/10 text-accent dark:bg-accent/20'
-          : 'text-stone-600 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800 hover:text-stone-800 dark:hover:text-stone-200'}"
+          class="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition {view === 'settings'
+            ? 'bg-accent/10 text-accent dark:bg-accent/20'
+            : 'text-stone-600 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800 hover:text-stone-800 dark:hover:text-stone-200'}"
           on:click={() => { view = 'settings'; sidebarOpen = false; }}
         >
           <Settings class="h-5 w-5 shrink-0" />
@@ -559,12 +445,10 @@
       </button>
       <div class="ml-auto flex items-center gap-3">
         {#if appVersion}
-          <span class="text-xs text-stone-500 dark:text-stone-400" title="{t.settingsVersion}">v{appVersion}</span>
+          <span class="text-xs text-stone-500 dark:text-stone-400" title={t.settingsVersion}>v{appVersion}</span>
         {/if}
         {#if demoMode}
-          <span class="rounded-full bg-accent/15 px-3 py-1.5 text-xs font-medium text-accent">
-            {t.demo}
-          </span>
+          <span class="rounded-full bg-accent/15 px-3 py-1.5 text-xs font-medium text-accent">{t.demo}</span>
         {/if}
         <div
           class="flex items-center gap-2 rounded-full px-3 py-1.5 text-sm {online
@@ -593,339 +477,23 @@
     <!-- Main content -->
     <main class="min-h-0 flex-1 overflow-auto p-5">
       <div class="flex flex-col gap-5">
+
+        <!-- ─── Overview ──────────────────────────────────────────── -->
         {#if showOverviewWelcome}
-          <!-- Overview: welcome + scenes -->
-          <div class="mx-auto max-w-2xl">
-            <div class="rounded-2xl border border-stone-200/80 dark:border-stone-600 dark:bg-stone-800 bg-white p-8 shadow-soft">
-              <h1 class="font-display text-2xl font-bold text-stone-800 dark:text-stone-100">
-                {$customWelcome?.title ?? t.welcomeTitle}
-              </h1>
-              <p class="mt-2 text-stone-600 dark:text-stone-400">
-                {$customWelcome?.desc ?? t.welcomeDesc}
-              </p>
-              <!-- Checklist -->
-              {#if $checklistWithState.length > 0}
-                <div class="mt-6 rounded-xl border border-stone-200/60 dark:border-stone-600 dark:bg-stone-800/50 p-4">
-                  <p class="mb-2 text-xs font-medium uppercase tracking-wider text-stone-500 dark:text-stone-400">
-                    {t.checklistTitle}
-                  </p>
-                  <ul class="space-y-2">
-                    {#each $checklistWithState as item (item.id)}
-                      <li>
-                        <button
-                          type="button"
-                          class="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm transition hover:bg-white/80 dark:hover:bg-stone-700/50 {item.checked
-                            ? 'text-stone-400 dark:text-stone-500 line-through'
-                            : 'text-stone-700 dark:text-stone-300'}"
-                          on:click={() => toggleChecklistItem(item.id)}
-                        >
-                          {#if item.checked}
-                            <CheckSquare class="h-4 w-4 shrink-0 text-accent" />
-                          {:else}
-                            <Square class="h-4 w-4 shrink-0 text-stone-400" />
-                          {/if}
-                          <span>{item.label}</span>
-                        </button>
-                      </li>
-                    {/each}
-                  </ul>
-                </div>
-              {/if}
-              <!-- At a glance -->
-              <div class="mt-6 flex flex-wrap gap-3">
-                {#if primaryTempValue != null}
-                  <span class="inline-flex items-center gap-2 rounded-xl bg-stone-50 dark:bg-stone-800 px-3 py-2 text-sm font-medium text-stone-700 dark:text-stone-300">
-                    <Thermometer class="h-4 w-4 text-stone-500" />
-                    {primaryTempValue}°
-                  </span>
-                {/if}
-                {#if hvacState}
-                  <span class="inline-flex items-center gap-2 rounded-xl bg-stone-50 dark:bg-stone-800 px-3 py-2 text-sm font-medium text-stone-700 dark:text-stone-300">
-                    <Sun class="h-4 w-4 text-stone-500" />
-                    {hvacState}{#if hvacTargetTemp != null} · {hvacTargetTemp}°{/if}
-                  </span>
-                {/if}
-                {#if primaryFloor}
-                  <span class="inline-flex items-center gap-2 rounded-xl bg-stone-50 dark:bg-stone-800 px-3 py-2 text-sm font-medium text-stone-700 dark:text-stone-300">
-                    <Flame class="h-4 w-4 text-stone-500" />
-                    {floorIsOn ? t.on : t.off}{#if floorTargetTemp != null} · {floorTargetTemp}°{/if}
-                  </span>
-                {/if}
-                <span class="inline-flex items-center gap-2 rounded-xl bg-stone-50 dark:bg-stone-800 px-3 py-2 text-sm font-medium text-stone-700 dark:text-stone-300">
-                  <Lightbulb class="h-4 w-4 text-stone-500" />
-                  {t.lightsOn(lightsOn)}
-                </span>
-              </div>
-              <!-- Scene buttons (only show available scenes) -->
-              <div class="mt-8 flex flex-col gap-3">
-                {#if scenes.length > 0}
-                  <div class="flex flex-wrap gap-3">
-                    {#each scenes as scene (scene.id)}
-                      <button
-                        type="button"
-                        class="flex flex-1 min-w-[8rem] items-center justify-center gap-2 rounded-xl border-2 px-4 py-3 font-medium shadow-soft transition active:scale-[0.98] disabled:opacity-60 {scene.color
-                          ? 'border-transparent text-white hover:opacity-90'
-                          : 'border-stone-200 dark:border-stone-600 bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-200 hover:bg-stone-50 dark:hover:bg-stone-700 hover:border-stone-300 dark:hover:border-stone-500'}"
-                        style={scene.color ? `background-color: ${scene.color}` : ''}
-                        disabled={sceneBusy !== null}
-                        on:click={() => runScene(scene)}
-                      >
-                        {#if sceneBusy === scene.id}
-                          <Loader2 class="h-4 w-4 shrink-0 animate-spin" />
-                        {:else}
-                          <svelte:component this={getSceneIcon(scene.icon)} class="h-4 w-4 shrink-0" />
-                        {/if}
-                        {scene.name}
-                      </button>
-                    {/each}
-                  </div>
-                {:else}
-                  <p class="text-sm text-stone-500 dark:text-stone-400">{t.scenesEmpty}</p>
-                {/if}
-              </div>
-            </div>
-          </div>
+          <OverviewView {entities} {scenes} {sceneBusy} onRunScene={runScene} />
+
+        <!-- ─── Settings ──────────────────────────────────────────── -->
         {:else if showSettings}
-          <!-- Settings -->
-          <div class="mx-auto max-w-4xl">
-            {#if $pinStore.pinHash && !settingsUnlocked}
-              <PinLockScreen mode="unlock" onUnlock={() => (settingsUnlocked = true)} />
-            {/if}
-            <h1 class="font-display text-2xl font-bold text-stone-800 dark:text-stone-100">
-              {t.settingsTitle}
-            </h1>
-            <div class="mt-6 rounded-2xl border border-stone-200/80 dark:border-stone-600 dark:bg-stone-800 bg-white p-6 shadow-soft">
-              <div class="space-y-4">
-                <div role="group" aria-label={t.settingsTheme}>
-                  <span class="block text-sm font-medium text-stone-600 dark:text-stone-400">
-                    {t.settingsTheme}
-                  </span>
-                  <div class="mt-2 flex gap-2">
-                    <button
-                      type="button"
-                      class="flex flex-1 items-center justify-center gap-2 rounded-xl border-2 px-4 py-2.5 text-sm font-medium transition {$theme === 'light'
-                        ? 'border-accent bg-accent/10 text-accent dark:bg-accent/20'
-                        : 'border-stone-200 dark:border-stone-600 bg-white dark:bg-stone-700 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-500'}"
-                      on:click={() => theme.set('light')}
-                    >
-                      <Sun class="h-4 w-4" />
-                      {t.themeLight}
-                    </button>
-                    <button
-                      type="button"
-                      class="flex flex-1 items-center justify-center gap-2 rounded-xl border-2 px-4 py-2.5 text-sm font-medium transition {$theme === 'dark'
-                        ? 'border-accent bg-accent/10 text-accent dark:bg-accent/20'
-                        : 'border-stone-200 dark:border-stone-600 bg-white dark:bg-stone-700 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-500'}"
-                      on:click={() => theme.set('dark')}
-                    >
-                      <Moon class="h-4 w-4" />
-                      {t.themeDark}
-                    </button>
-                    <button
-                      type="button"
-                      class="flex flex-1 items-center justify-center gap-2 rounded-xl border-2 px-4 py-2.5 text-sm font-medium transition {$theme === 'system'
-                        ? 'border-accent bg-accent/10 text-accent dark:bg-accent/20'
-                        : 'border-stone-200 dark:border-stone-600 bg-white dark:bg-stone-700 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-500'}"
-                      on:click={() => theme.set('system')}
-                    >
-                      <Monitor class="h-4 w-4" />
-                      {t.themeSystem}
-                    </button>
-                  </div>
-                </div>
-                <div class="border-t border-stone-200 dark:border-stone-600 pt-6">
-                  <span class="block text-sm font-medium text-stone-600 dark:text-stone-400">
-                    {t.pinLockSection}
-                  </span>
-                  {#if $pinStore.pinHash}
-                    <div class="mt-2 flex gap-2">
-                      <button
-                        type="button"
-                        class="rounded-xl border border-stone-200 dark:border-stone-600 bg-white dark:bg-stone-700 px-4 py-2.5 text-sm font-medium text-stone-700 dark:text-stone-200 transition hover:bg-stone-50 dark:hover:bg-stone-600"
-                        on:click={() => { pinSetupMode = 'change'; showPinSetupModal = true; }}
-                      >
-                        {t.pinChange}
-                      </button>
-                      <button
-                        type="button"
-                        class="rounded-xl border border-red-200 dark:border-red-900/50 bg-white dark:bg-stone-700 px-4 py-2.5 text-sm font-medium text-red-600 dark:text-red-400 transition hover:bg-red-50 dark:hover:bg-red-900/20"
-                        on:click={() => { pinSetupMode = 'remove'; showPinSetupModal = true; }}
-                      >
-                        {t.pinRemove}
-                      </button>
-                    </div>
-                  {:else}
-                    <button
-                      type="button"
-                      class="mt-2 rounded-xl border border-stone-200 dark:border-stone-600 bg-white dark:bg-stone-700 px-4 py-2.5 text-sm font-medium text-stone-700 dark:text-stone-200 transition hover:bg-stone-50 dark:hover:bg-stone-600"
-                      on:click={() => { pinSetupMode = 'set'; showPinSetupModal = true; }}
-                    >
-                      {t.pinSet}
-                    </button>
-                  {/if}
-                </div>
-                <div class="border-t border-stone-200 dark:border-stone-600 pt-6">
-                  <span class="block text-sm font-medium text-stone-600 dark:text-stone-400">
-                    {t.scenesTitle}
-                  </span>
-                  {#if scenes.length > 0}
-                    <ul class="mt-3 space-y-2">
-                      {#each scenes as scene (scene.id)}
-                        <li class="flex items-center justify-between gap-3 rounded-lg border border-stone-200 dark:border-stone-600 dark:bg-stone-800/50 bg-stone-50/50 px-3 py-2">
-                          <span class="flex items-center gap-2 flex-1">
-                            {#if scene.icon || scene.color}
-                              <span
-                                class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg {scene.color ? 'text-white' : 'bg-stone-200 dark:bg-stone-600 text-stone-600 dark:text-stone-300'}"
-                                style={scene.color ? `background-color: ${scene.color}` : ''}
-                              >
-                                <svelte:component this={getSceneIcon(scene.icon)} class="h-4 w-4" />
-                              </span>
-                            {/if}
-                            <span class="text-sm font-medium text-stone-700 dark:text-stone-300">{scene.name}</span>
-                          </span>
-                          <div class="flex gap-1">
-                            <button
-                              type="button"
-                              class="rounded-lg px-2 py-1 text-xs font-medium text-stone-600 dark:text-stone-400 transition hover:bg-stone-200 dark:hover:bg-stone-700"
-                              on:click={() => openEditSceneModal(scene)}
-                            >
-                              {t.sceneEdit}
-                            </button>
-                            <button
-                              type="button"
-                              class="rounded-lg px-2 py-1 text-xs font-medium text-red-600 dark:text-red-400 transition hover:bg-red-50 dark:hover:bg-red-900/20"
-                              on:click={() => (showDeleteSceneConfirm = scene)}
-                            >
-                              {t.sceneDelete}
-                            </button>
-                          </div>
-                        </li>
-                      {/each}
-                    </ul>
-                  {:else}
-                    <p class="mt-2 text-sm text-stone-500 dark:text-stone-400">{t.scenesEmpty}</p>
-                  {/if}
-                  <button
-                    type="button"
-                    class="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-stone-300 dark:border-stone-600 bg-stone-50 dark:bg-stone-800/50 px-4 py-3 font-medium text-stone-600 dark:text-stone-400 transition hover:border-accent hover:bg-accent/5 hover:text-accent dark:hover:border-accent dark:hover:bg-accent/10 dark:hover:text-accent"
-                    on:click={openSaveSceneModal}
-                  >
-                    <Save class="h-4 w-4 shrink-0" />
-                    {t.sceneSaveAs}
-                  </button>
-                </div>
-                <div class="border-t border-stone-200 dark:border-stone-600 pt-6">
-                  <label for="welcome-title" class="block text-sm font-medium text-stone-600 dark:text-stone-400">
-                    {t.settingsWelcomeTitle}
-                  </label>
-                  <input
-                    id="welcome-title"
-                    type="text"
-                    bind:value={settingsTitleInput}
-                    class="mt-1.5 w-full rounded-xl border border-stone-200 dark:border-stone-600 dark:bg-stone-700 bg-white px-4 py-2.5 text-stone-800 dark:text-stone-200 placeholder-stone-400 dark:placeholder-stone-500 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
-                    placeholder={t.welcomeTitle}
-                  />
-                </div>
-                <div>
-                  <label for="welcome-desc" class="block text-sm font-medium text-stone-600">
-                    {t.settingsWelcomeDesc}
-                  </label>
-                  <textarea
-                    id="welcome-desc"
-                    bind:value={settingsDescInput}
-                    rows="3"
-                    class="mt-1.5 w-full resize-none rounded-xl border border-stone-200 dark:border-stone-600 dark:bg-stone-700 bg-white px-4 py-2.5 text-stone-800 dark:text-stone-200 placeholder-stone-400 dark:placeholder-stone-500 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
-                    placeholder={t.welcomeDesc}
-                  ></textarea>
-                </div>
-                <div class="border-t border-stone-200 pt-6">
-                  <label for="checklist-add" class="block text-sm font-medium text-stone-600">
-                    {t.checklistTitle}
-                  </label>
-                  <p class="mt-0.5 text-xs text-stone-500">
-                    {t.checklistHelp}
-                  </p>
-                  <div class="mt-2 flex gap-2">
-                    <input
-                      id="checklist-add"
-                      type="text"
-                      bind:value={checklistNewItem}
-                      placeholder={t.checklistAddPlaceholder}
-                      class="flex-1 rounded-xl border border-stone-200 dark:border-stone-600 dark:bg-stone-700 bg-white px-4 py-2.5 text-stone-800 dark:text-stone-200 placeholder-stone-400 dark:placeholder-stone-500 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
-                      on:keydown={(e) => e.key === "Enter" && addChecklistItem()}
-                    />
-                    <button
-                      type="button"
-                      class="rounded-xl bg-accent px-4 py-2.5 text-sm font-medium text-white transition hover:bg-accent-hover active:scale-[0.98]"
-                      on:click={addChecklistItem}
-                    >
-                      <Plus class="h-4 w-4" />
-                    </button>
-                  </div>
-                  {#if $checklistItems.length > 0}
-                    <ul class="mt-3 space-y-2">
-                      {#each $checklistItems as item, i (item.id)}
-                        <li class="flex items-center gap-2 rounded-lg border border-stone-200 dark:border-stone-600 dark:bg-stone-800/50 bg-stone-50/50 px-3 py-2">
-                          <div class="flex flex-col gap-0.5">
-                            <button
-                              type="button"
-                              class="rounded p-0.5 text-stone-400 transition hover:bg-stone-200 hover:text-stone-600 disabled:opacity-30 disabled:hover:bg-transparent"
-                              aria-label={t.ariaMoveUp}
-                              disabled={i === 0}
-                              on:click={() => checklistItems.moveUp(item.id)}
-                            >
-                              <ChevronUp class="h-4 w-4" />
-                            </button>
-                            <button
-                              type="button"
-                              class="rounded p-0.5 text-stone-400 transition hover:bg-stone-200 hover:text-stone-600 disabled:opacity-30 disabled:hover:bg-transparent"
-                              aria-label={t.ariaMoveDown}
-                              disabled={i === $checklistItems.length - 1}
-                              on:click={() => checklistItems.moveDown(item.id)}
-                            >
-                              <ChevronDown class="h-4 w-4" />
-                            </button>
-                          </div>
-                          <span class="flex-1 text-sm text-stone-700 dark:text-stone-300">{item.label}</span>
-                          <button
-                            type="button"
-                            class="rounded-lg p-1.5 text-stone-400 transition hover:bg-stone-200 hover:text-stone-600"
-                            aria-label={t.ariaRemove}
-                            on:click={() => checklistItems.remove(item.id)}
-                          >
-                            <Trash2 class="h-4 w-4" />
-                          </button>
-                        </li>
-                      {/each}
-                    </ul>
-                  {/if}
-                </div>
-              </div>
-              <div class="mt-6 flex flex-wrap gap-3">
-                <button
-                  type="button"
-                  class="rounded-xl bg-accent px-4 py-2.5 text-sm font-medium text-white shadow-soft transition hover:bg-accent-hover active:scale-[0.98]"
-                  on:click={saveCustomWelcome}
-                >
-                  {settingsSavedFlash ? t.settingsSaved : t.settingsSave}
-                </button>
-                <button
-                  type="button"
-                  class="rounded-xl border border-stone-200 bg-white px-4 py-2.5 text-sm font-medium text-stone-600 transition hover:bg-stone-50 active:scale-[0.98]"
-                  on:click={resetCustomWelcome}
-                >
-                  {t.settingsReset}
-                </button>
-              </div>
-              {#if appVersion}
-                <div class="border-t border-stone-200 dark:border-stone-600 pt-6">
-                  <p class="text-xs text-stone-500 dark:text-stone-400">
-                    {t.settingsVersion}: {appVersion}
-                  </p>
-                </div>
-              {/if}
-            </div>
-          </div>
+          <SettingsView
+            {scenes}
+            {appVersion}
+            bind:settingsUnlocked
+            onOpenSaveSceneModal={openSaveSceneModal}
+            onOpenEditSceneModal={openEditSceneModal}
+            onDeleteScene={(scene) => (showDeleteSceneConfirm = scene)}
+          />
+
+        <!-- ─── Lighting / Temperature / HVAC ─────────────────────── -->
         {:else}
           <h1 class="font-display text-2xl font-bold text-stone-800 dark:text-stone-100">
             {view === "lighting" ? t.titleLighting : view === "temperature" ? t.titleTemperature : t.titleHvac}
@@ -957,7 +525,7 @@
             </span>
           </div>
 
-          <!-- Temperature view: 24h graph (inside + outside) then Inside / Outside cards -->
+          <!-- Temperature view -->
           {#if showTempView && tempSensors.length > 0}
             <TemperatureGraphCard
               entityId={insideTempSensor?.entity_id ?? tempSensors[0].entity_id}
@@ -966,95 +534,70 @@
             />
             <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {#if insideTempSensor}
-                <SensorTempCard
-                  entity={insideTempSensor}
-                  onSelect={() => (selectedTempEntity = insideTempSensor)}
-                />
+                <SensorTempCard entity={insideTempSensor} onSelect={() => (selectedTempEntity = insideTempSensor)} />
               {/if}
               {#if outsideTempEntity}
-                <SensorTempCard
-                  entity={outsideTempEntity}
-                  onSelect={() => (selectedTempEntity = outsideTempEntity)}
-                />
+                <SensorTempCard entity={outsideTempEntity} onSelect={() => (selectedTempEntity = outsideTempEntity)} />
               {/if}
               {#each tempSensors.filter((e) => e !== insideTempSensor && e !== outsideTempSensor) as entity (entity.entity_id)}
-                <SensorTempCard
-                  {entity}
-                  onSelect={() => (selectedTempEntity = entity)}
-                />
+                <SensorTempCard {entity} onSelect={() => (selectedTempEntity = entity)} />
               {/each}
             </div>
           {/if}
 
           <!-- Card grid -->
           <div class="grid items-start gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {#if showMotionAndOther && (motionSensors.length > 0 || otherSensors.length > 0)}
-            {#each motionSensors as entity (entity.entity_id)}
-              <SensorMotionCard {entity} />
-            {/each}
-            {#each otherSensors as entity (entity.entity_id)}
-              <SensorGenericCard {entity} />
-            {/each}
-          {/if}
+            {#if showMotionAndOther && (motionSensors.length > 0 || otherSensors.length > 0)}
+              {#each motionSensors as entity (entity.entity_id)}
+                <SensorMotionCard {entity} />
+              {/each}
+              {#each otherSensors as entity (entity.entity_id)}
+                <SensorGenericCard {entity} />
+              {/each}
+            {/if}
 
-          {#if showClimate && (climateFloor.length > 0 || climateHvac.length > 0)}
-            {#each climateFloor as entity (entity.entity_id)}
-              <FloorWarmingCard {entity} onUpdate={load} />
-            {/each}
-            {#each climateHvac as entity (entity.entity_id)}
-              <ClimateCard {entity} onUpdate={load} />
-            {/each}
-          {/if}
+            {#if showClimate && (climateFloor.length > 0 || climateHvac.length > 0)}
+              {#each climateFloor as entity (entity.entity_id)}
+                <FloorWarmingCard {entity} onUpdate={load} />
+              {/each}
+              {#each climateHvac as entity (entity.entity_id)}
+                <ClimateCard {entity} onUpdate={load} />
+              {/each}
+            {/if}
 
-          {#if showLights && lights.length > 0}
-            {#each lightGroups as { groupId, label, lights: groupLights }}
-              <div class="col-span-full mt-8 first:mt-0">
-                <h2 class="mb-2 text-sm font-semibold uppercase tracking-wider text-stone-500 dark:text-stone-400">
-                  {groupId === "other" ? t.lightGroupOther : label}
-                </h2>
-                <div class="grid items-start gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {#each groupLights as entity (entity.entity_id)}
-                    {#if isRGBWLight(entity)}
-                      <LightRGBWCard
-                        {entity}
-                        onUpdate={load}
-                        busy={toggling.has(entity.entity_id)}
-                        onServiceCallStart={(id) => {
-                          toggling = new Set(toggling);
-                          toggling.add(id);
-                          toggling = toggling;
-                        }}
-                        onServiceCallEnd={(id) => {
-                          toggling = new Set(toggling);
-                          toggling.delete(id);
-                          toggling = toggling;
-                        }}
-                        onError={(msg) => (lastError = sanitizeError(msg))}
-                      />
-                    {:else if isDimmerLight(entity)}
-                      <LightDimmerCard {entity} onUpdate={load} busy={toggling.has(entity.entity_id)} />
-                    {:else}
-                      <LightToggleCard
-                        {entity}
-                        onToggle={() => toggle(entity)}
-                        busy={toggling.has(entity.entity_id)}
-                      />
-                    {/if}
-                  {/each}
+            {#if showLights && lights.length > 0}
+              {#each lightGroups as { groupId, label, lights: groupLights }}
+                <div class="col-span-full mt-8 first:mt-0">
+                  <h2 class="mb-2 text-sm font-semibold uppercase tracking-wider text-stone-500 dark:text-stone-400">
+                    {groupId === "other" ? t.lightGroupOther : label}
+                  </h2>
+                  <div class="grid items-start gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {#each groupLights as entity (entity.entity_id)}
+                      {#if isRGBWLight(entity)}
+                        <LightRGBWCard
+                          {entity}
+                          onUpdate={load}
+                          busy={toggling.has(entity.entity_id)}
+                          onServiceCallStart={(id) => { toggling = new Set(toggling); toggling.add(id); toggling = toggling; }}
+                          onServiceCallEnd={(id) => { toggling = new Set(toggling); toggling.delete(id); toggling = toggling; }}
+                          onError={(msg) => (lastError = sanitizeError(msg))}
+                        />
+                      {:else if isDimmerLight(entity)}
+                        <LightDimmerCard {entity} onUpdate={load} busy={toggling.has(entity.entity_id)} />
+                      {:else}
+                        <LightToggleCard {entity} onToggle={() => toggle(entity)} busy={toggling.has(entity.entity_id)} />
+                      {/if}
+                    {/each}
+                  </div>
                 </div>
-              </div>
-            {/each}
-          {/if}
+              {/each}
+            {/if}
 
-          {#if showPower && switches.length > 0}
-            {#each switches as entity (entity.entity_id)}
-              <SwitchCard
-                {entity}
-                onToggle={() => toggle(entity)}
-                busy={toggling.has(entity.entity_id)}
-              />
-            {/each}
-          {/if}
+            {#if showPower && switches.length > 0}
+              {#each switches as entity (entity.entity_id)}
+                <SwitchCard {entity} onToggle={() => toggle(entity)} busy={toggling.has(entity.entity_id)} />
+              {/each}
+            {/if}
           </div>
 
           {#if entities.length === 0 && !lastError}
@@ -1072,274 +615,128 @@
   </div>
 </div>
 
+<!-- ═══════════════════════════════════════════════════════════════════
+     MODALS
+     ═══════════════════════════════════════════════════════════════════ -->
+
 {#if selectedTempEntity}
-  <TemperatureDetailModal
-    entity={selectedTempEntity}
-    onClose={() => (selectedTempEntity = null)}
-  />
+  <TemperatureDetailModal entity={selectedTempEntity} onClose={() => (selectedTempEntity = null)} />
 {/if}
 
-{#if showAllOffConfirm}
-  <div
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 dark:bg-black/60 p-4"
-    role="dialog"
-    aria-modal="true"
-    aria-labelledby="alloff-title"
-  >
-    <div class="w-full max-w-sm rounded-2xl border border-stone-200 dark:border-stone-600 dark:bg-stone-800 bg-white p-6 shadow-soft-lg">
-      <h2 id="alloff-title" class="font-display text-lg font-semibold text-stone-800 dark:text-stone-100">
-        {t.turnAllOffTitle}
-      </h2>
-      <p class="mt-2 text-sm text-stone-600 dark:text-stone-400">
-        {t.turnAllOffDesc}
-      </p>
-      <div class="mt-6 flex gap-3">
-        <button
-          type="button"
-          class="flex-1 rounded-xl bg-stone-100 dark:bg-stone-700 py-3 font-medium text-stone-700 dark:text-stone-200 transition hover:bg-stone-200 dark:hover:bg-stone-600 active:scale-[0.98]"
-          on:click={() => (showAllOffConfirm = false)}
-        >
-          {t.cancel}
+<!-- All-Off confirmation -->
+<Modal open={showAllOffConfirm} titleId="alloff-title" onClose={() => (showAllOffConfirm = false)}>
+  <h2 id="alloff-title" class="font-display text-lg font-semibold text-stone-800 dark:text-stone-100">{t.turnAllOffTitle}</h2>
+  <p class="mt-2 text-sm text-stone-600 dark:text-stone-400">{t.turnAllOffDesc}</p>
+  <div class="mt-6 flex gap-3">
+    <button type="button" class="flex-1 rounded-xl bg-stone-100 dark:bg-stone-700 py-3 font-medium text-stone-700 dark:text-stone-200 transition hover:bg-stone-200 dark:hover:bg-stone-600 active:scale-[0.98]" on:click={() => (showAllOffConfirm = false)}>
+      {t.cancel}
+    </button>
+    <button type="button" class="flex-1 rounded-xl bg-accent py-3 font-medium text-white transition hover:bg-accent-hover active:scale-[0.98]" on:click={allOff}>
+      {t.turnAllOff}
+    </button>
+  </div>
+</Modal>
+
+<!-- Save scene -->
+<Modal open={showSaveSceneModal} titleId="save-scene-title" onClose={() => (showSaveSceneModal = false)}>
+  <h2 id="save-scene-title" class="font-display text-lg font-semibold text-stone-800 dark:text-stone-100">{t.sceneSaveAs}</h2>
+  <input type="text" bind:value={saveSceneNameInput} placeholder={t.sceneNamePlaceholder}
+    class="mt-4 w-full rounded-xl border border-stone-200 dark:border-stone-600 dark:bg-stone-700 bg-white px-4 py-2.5 text-stone-800 dark:text-stone-200 placeholder-stone-400 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+    on:keydown={(e) => e.key === "Enter" && saveSceneFromModal()} />
+  <div class="mt-4">
+    <span class="block text-xs font-medium text-stone-500 dark:text-stone-400 mb-2">{t.sceneIcon}</span>
+    <div class="flex flex-wrap gap-2">
+      {#each SCENE_ICON_KEYS as key}
+        <button type="button" class="flex h-9 w-9 items-center justify-center rounded-lg transition {saveSceneIconInput === key ? 'bg-accent text-white' : 'bg-stone-100 dark:bg-stone-700 text-stone-600 dark:text-stone-400 hover:bg-stone-200 dark:hover:bg-stone-600'}" aria-label={key} on:click={() => (saveSceneIconInput = key)}>
+          <svelte:component this={SCENE_ICONS[key]} class="h-4 w-4" />
         </button>
-        <button
-          type="button"
-          class="flex-1 rounded-xl bg-accent py-3 font-medium text-white transition hover:bg-accent-hover active:scale-[0.98]"
-          on:click={allOff}
-        >
-          {t.turnAllOff}
-        </button>
-      </div>
+      {/each}
     </div>
   </div>
-{/if}
-
-{#if showSaveSceneModal}
-  <div
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 dark:bg-black/60 p-4"
-    role="dialog"
-    aria-modal="true"
-    aria-labelledby="save-scene-title"
-  >
-    <div class="w-full max-w-sm rounded-2xl border border-stone-200 dark:border-stone-600 dark:bg-stone-800 bg-white p-6 shadow-soft-lg">
-      <h2 id="save-scene-title" class="font-display text-lg font-semibold text-stone-800 dark:text-stone-100">
-        {t.sceneSaveAs}
-      </h2>
-      <input
-        type="text"
-        bind:value={saveSceneNameInput}
-        placeholder={t.sceneNamePlaceholder}
-        class="mt-4 w-full rounded-xl border border-stone-200 dark:border-stone-600 dark:bg-stone-700 bg-white px-4 py-2.5 text-stone-800 dark:text-stone-200 placeholder-stone-400 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
-        on:keydown={(e) => e.key === "Enter" && saveSceneFromModal()}
-      />
-      <div class="mt-4">
-        <span class="block text-xs font-medium text-stone-500 dark:text-stone-400 mb-2">{t.sceneIcon}</span>
-        <div class="flex flex-wrap gap-2">
-          {#each SCENE_ICON_KEYS as key}
-            <button
-              type="button"
-              class="flex h-9 w-9 items-center justify-center rounded-lg transition {saveSceneIconInput === key
-                ? 'bg-accent text-white'
-                : 'bg-stone-100 dark:bg-stone-700 text-stone-600 dark:text-stone-400 hover:bg-stone-200 dark:hover:bg-stone-600'}"
-              aria-label={key}
-              on:click={() => (saveSceneIconInput = key)}
-            >
-              <svelte:component this={SCENE_ICONS[key]} class="h-4 w-4" />
-            </button>
-          {/each}
-        </div>
-      </div>
-      <div class="mt-4">
-        <span class="block text-xs font-medium text-stone-500 dark:text-stone-400 mb-2">{t.sceneColor}</span>
-        <div class="flex flex-wrap gap-2">
-          <button
-            type="button"
-            class="h-9 w-9 rounded-lg border-2 transition {!saveSceneColorInput
-              ? 'border-stone-800 dark:border-stone-200'
-              : 'border-stone-200 dark:border-stone-600 hover:border-stone-400'}"
-            title={t.sceneColorNone}
-            on:click={() => (saveSceneColorInput = '')}
-          >
-            <span class="text-xs text-stone-400">✕</span>
-          </button>
-          {#each SCENE_COLORS as c}
-            <button
-              type="button"
-              class="h-9 w-9 rounded-lg border-2 transition {saveSceneColorInput === c
-                ? 'border-stone-800 dark:border-stone-200 scale-110'
-                : 'border-transparent hover:scale-105'}"
-              style="background-color: {c}"
-              aria-label={c}
-              on:click={() => (saveSceneColorInput = saveSceneColorInput === c ? '' : c)}
-            />
-          {/each}
-          <label class="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border-2 border-dashed border-stone-300 dark:border-stone-600 bg-stone-50 dark:bg-stone-800 hover:border-stone-400">
-            <input
-              type="color"
-              class="sr-only"
-              value={saveSceneColorInput || '#888888'}
-              on:input={(e) => (saveSceneColorInput = e.currentTarget.value)}
-            />
-            <span class="text-xs text-stone-500">+</span>
-          </label>
-        </div>
-      </div>
-      <div class="mt-6 flex gap-3">
-        <button
-          type="button"
-          class="flex-1 rounded-xl bg-stone-100 dark:bg-stone-700 py-3 font-medium text-stone-700 dark:text-stone-200 transition hover:bg-stone-200 dark:hover:bg-stone-600 active:scale-[0.98]"
-          on:click={() => (showSaveSceneModal = false)}
-        >
-          {t.cancel}
-        </button>
-        <button
-          type="button"
-          class="flex-1 rounded-xl bg-accent py-3 font-medium text-white transition hover:bg-accent-hover active:scale-[0.98] disabled:opacity-50"
-          disabled={!saveSceneNameInput.trim()}
-          on:click={saveSceneFromModal}
-        >
-          {t.sceneSave}
-        </button>
-      </div>
+  <div class="mt-4">
+    <span class="block text-xs font-medium text-stone-500 dark:text-stone-400 mb-2">{t.sceneColor}</span>
+    <div class="flex flex-wrap gap-2">
+      <button type="button" class="h-9 w-9 rounded-lg border-2 transition {!saveSceneColorInput ? 'border-stone-800 dark:border-stone-200' : 'border-stone-200 dark:border-stone-600 hover:border-stone-400'}" title={t.sceneColorNone} on:click={() => (saveSceneColorInput = '')}>
+        <span class="text-xs text-stone-400">✕</span>
+      </button>
+      {#each SCENE_COLORS as c}
+        <button type="button" class="h-9 w-9 rounded-lg border-2 transition {saveSceneColorInput === c ? 'border-stone-800 dark:border-stone-200 scale-110' : 'border-transparent hover:scale-105'}" style="background-color: {c}" aria-label={c} on:click={() => (saveSceneColorInput = saveSceneColorInput === c ? '' : c)} />
+      {/each}
+      <label class="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border-2 border-dashed border-stone-300 dark:border-stone-600 bg-stone-50 dark:bg-stone-800 hover:border-stone-400">
+        <input type="color" class="sr-only" value={saveSceneColorInput || '#888888'} on:input={(e) => (saveSceneColorInput = e.currentTarget.value)} />
+        <span class="text-xs text-stone-500">+</span>
+      </label>
     </div>
   </div>
-{/if}
+  <div class="mt-6 flex gap-3">
+    <button type="button" class="flex-1 rounded-xl bg-stone-100 dark:bg-stone-700 py-3 font-medium text-stone-700 dark:text-stone-200 transition hover:bg-stone-200 dark:hover:bg-stone-600 active:scale-[0.98]" on:click={() => (showSaveSceneModal = false)}>
+      {t.cancel}
+    </button>
+    <button type="button" class="flex-1 rounded-xl bg-accent py-3 font-medium text-white transition hover:bg-accent-hover active:scale-[0.98] disabled:opacity-50" disabled={!saveSceneNameInput.trim()} on:click={saveSceneFromModal}>
+      {t.sceneSave}
+    </button>
+  </div>
+</Modal>
 
+<!-- Edit scene -->
 {#if showEditSceneModal}
-  <div
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 dark:bg-black/60 p-4"
-    role="dialog"
-    aria-modal="true"
-    aria-labelledby="edit-scene-title"
-  >
-    <div class="w-full max-w-sm rounded-2xl border border-stone-200 dark:border-stone-600 dark:bg-stone-800 bg-white p-6 shadow-soft-lg">
-      <h2 id="edit-scene-title" class="font-display text-lg font-semibold text-stone-800 dark:text-stone-100">
-        {t.sceneEdit} — {showEditSceneModal.name}
-      </h2>
-      <input
-        type="text"
-        bind:value={editSceneNameInput}
-        placeholder={t.sceneNamePlaceholder}
-        class="mt-4 w-full rounded-xl border border-stone-200 dark:border-stone-600 dark:bg-stone-700 bg-white px-4 py-2.5 text-stone-800 dark:text-stone-200 placeholder-stone-400 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
-      />
-      <div class="mt-4">
-        <span class="block text-xs font-medium text-stone-500 dark:text-stone-400 mb-2">{t.sceneIcon}</span>
-        <div class="flex flex-wrap gap-2">
-          {#each SCENE_ICON_KEYS as key}
-            <button
-              type="button"
-              class="flex h-9 w-9 items-center justify-center rounded-lg transition {editSceneIconInput === key
-                ? 'bg-accent text-white'
-                : 'bg-stone-100 dark:bg-stone-700 text-stone-600 dark:text-stone-400 hover:bg-stone-200 dark:hover:bg-stone-600'}"
-              aria-label={key}
-              on:click={() => (editSceneIconInput = key)}
-            >
-              <svelte:component this={SCENE_ICONS[key]} class="h-4 w-4" />
-            </button>
-          {/each}
-        </div>
-      </div>
-      <div class="mt-4">
-        <span class="block text-xs font-medium text-stone-500 dark:text-stone-400 mb-2">{t.sceneColor}</span>
-        <div class="flex flex-wrap gap-2">
-          <button
-            type="button"
-            class="h-9 w-9 rounded-lg border-2 transition {!editSceneColorInput
-              ? 'border-stone-800 dark:border-stone-200'
-              : 'border-stone-200 dark:border-stone-600 hover:border-stone-400'}"
-            title={t.sceneColorNone}
-            on:click={() => (editSceneColorInput = '')}
-          >
-            <span class="text-xs text-stone-400">✕</span>
+  <Modal open={true} titleId="edit-scene-title" onClose={() => (showEditSceneModal = null)}>
+    <h2 id="edit-scene-title" class="font-display text-lg font-semibold text-stone-800 dark:text-stone-100">{t.sceneEdit} — {showEditSceneModal.name}</h2>
+    <input type="text" bind:value={editSceneNameInput} placeholder={t.sceneNamePlaceholder}
+      class="mt-4 w-full rounded-xl border border-stone-200 dark:border-stone-600 dark:bg-stone-700 bg-white px-4 py-2.5 text-stone-800 dark:text-stone-200 placeholder-stone-400 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20" />
+    <div class="mt-4">
+      <span class="block text-xs font-medium text-stone-500 dark:text-stone-400 mb-2">{t.sceneIcon}</span>
+      <div class="flex flex-wrap gap-2">
+        {#each SCENE_ICON_KEYS as key}
+          <button type="button" class="flex h-9 w-9 items-center justify-center rounded-lg transition {editSceneIconInput === key ? 'bg-accent text-white' : 'bg-stone-100 dark:bg-stone-700 text-stone-600 dark:text-stone-400 hover:bg-stone-200 dark:hover:bg-stone-600'}" aria-label={key} on:click={() => (editSceneIconInput = key)}>
+            <svelte:component this={SCENE_ICONS[key]} class="h-4 w-4" />
           </button>
-          {#each SCENE_COLORS as c}
-            <button
-              type="button"
-              class="h-9 w-9 rounded-lg border-2 transition {editSceneColorInput === c
-                ? 'border-stone-800 dark:border-stone-200 scale-110'
-                : 'border-transparent hover:scale-105'}"
-              style="background-color: {c}"
-              aria-label={c}
-              on:click={() => (editSceneColorInput = editSceneColorInput === c ? '' : c)}
-            />
-          {/each}
-          <label class="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border-2 border-dashed border-stone-300 dark:border-stone-600 bg-stone-50 dark:bg-stone-800 hover:border-stone-400">
-            <input
-              type="color"
-              class="sr-only"
-              value={editSceneColorInput || '#888888'}
-              on:input={(e) => (editSceneColorInput = e.currentTarget.value)}
-            />
-            <span class="text-xs text-stone-500">+</span>
-          </label>
-        </div>
-      </div>
-      <div class="mt-4 flex flex-col gap-2">
-        <button
-          type="button"
-          class="w-full rounded-xl border border-stone-200 dark:border-stone-600 py-2.5 text-sm font-medium text-stone-700 dark:text-stone-200 transition hover:bg-stone-50 dark:hover:bg-stone-700"
-          on:click={replaceSceneWithCurrent}
-        >
-          {t.sceneReplaceWithCurrent}
-        </button>
-      </div>
-      <div class="mt-6 flex gap-3">
-        <button
-          type="button"
-          class="flex-1 rounded-xl bg-stone-100 dark:bg-stone-700 py-3 font-medium text-stone-700 dark:text-stone-200 transition hover:bg-stone-200 dark:hover:bg-stone-600 active:scale-[0.98]"
-          on:click={() => (showEditSceneModal = null)}
-        >
-          {t.close}
-        </button>
-        <button
-          type="button"
-          class="flex-1 rounded-xl bg-accent py-3 font-medium text-white transition hover:bg-accent-hover active:scale-[0.98]"
-          on:click={saveSceneEdit}
-        >
-          {t.settingsSave}
-        </button>
+        {/each}
       </div>
     </div>
-  </div>
+    <div class="mt-4">
+      <span class="block text-xs font-medium text-stone-500 dark:text-stone-400 mb-2">{t.sceneColor}</span>
+      <div class="flex flex-wrap gap-2">
+        <button type="button" class="h-9 w-9 rounded-lg border-2 transition {!editSceneColorInput ? 'border-stone-800 dark:border-stone-200' : 'border-stone-200 dark:border-stone-600 hover:border-stone-400'}" title={t.sceneColorNone} on:click={() => (editSceneColorInput = '')}>
+          <span class="text-xs text-stone-400">✕</span>
+        </button>
+        {#each SCENE_COLORS as c}
+          <button type="button" class="h-9 w-9 rounded-lg border-2 transition {editSceneColorInput === c ? 'border-stone-800 dark:border-stone-200 scale-110' : 'border-transparent hover:scale-105'}" style="background-color: {c}" aria-label={c} on:click={() => (editSceneColorInput = editSceneColorInput === c ? '' : c)} />
+        {/each}
+        <label class="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border-2 border-dashed border-stone-300 dark:border-stone-600 bg-stone-50 dark:bg-stone-800 hover:border-stone-400">
+          <input type="color" class="sr-only" value={editSceneColorInput || '#888888'} on:input={(e) => (editSceneColorInput = e.currentTarget.value)} />
+          <span class="text-xs text-stone-500">+</span>
+        </label>
+      </div>
+    </div>
+    <div class="mt-4 flex flex-col gap-2">
+      <button type="button" class="w-full rounded-xl border border-stone-200 dark:border-stone-600 py-2.5 text-sm font-medium text-stone-700 dark:text-stone-200 transition hover:bg-stone-50 dark:hover:bg-stone-700" on:click={replaceSceneWithCurrent}>
+        {t.sceneReplaceWithCurrent}
+      </button>
+    </div>
+    <div class="mt-6 flex gap-3">
+      <button type="button" class="flex-1 rounded-xl bg-stone-100 dark:bg-stone-700 py-3 font-medium text-stone-700 dark:text-stone-200 transition hover:bg-stone-200 dark:hover:bg-stone-600 active:scale-[0.98]" on:click={() => (showEditSceneModal = null)}>
+        {t.close}
+      </button>
+      <button type="button" class="flex-1 rounded-xl bg-accent py-3 font-medium text-white transition hover:bg-accent-hover active:scale-[0.98]" on:click={saveSceneEdit}>
+        {t.settingsSave}
+      </button>
+    </div>
+  </Modal>
 {/if}
 
+<!-- Delete scene confirmation -->
 {#if showDeleteSceneConfirm}
-  <div
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 dark:bg-black/60 p-4"
-    role="dialog"
-    aria-modal="true"
-    aria-labelledby="delete-scene-title"
-  >
-    <div class="w-full max-w-sm rounded-2xl border border-stone-200 dark:border-stone-600 dark:bg-stone-800 bg-white p-6 shadow-soft-lg">
-      <h2 id="delete-scene-title" class="font-display text-lg font-semibold text-stone-800 dark:text-stone-100">
+  <Modal open={true} titleId="delete-scene-title" onClose={() => (showDeleteSceneConfirm = null)}>
+    <h2 id="delete-scene-title" class="font-display text-lg font-semibold text-stone-800 dark:text-stone-100">{t.sceneDelete}</h2>
+    <p class="mt-2 text-sm text-stone-600 dark:text-stone-400">{t.sceneDeleteConfirm(showDeleteSceneConfirm.name)}</p>
+    <div class="mt-6 flex gap-3">
+      <button type="button" class="flex-1 rounded-xl bg-stone-100 dark:bg-stone-700 py-3 font-medium text-stone-700 dark:text-stone-200 transition hover:bg-stone-200 dark:hover:bg-stone-600 active:scale-[0.98]" on:click={() => (showDeleteSceneConfirm = null)}>
+        {t.cancel}
+      </button>
+      <button type="button" class="flex-1 rounded-xl bg-red-600 py-3 font-medium text-white transition hover:bg-red-700 active:scale-[0.98]" on:click={confirmDeleteScene}>
         {t.sceneDelete}
-      </h2>
-      <p class="mt-2 text-sm text-stone-600 dark:text-stone-400">
-        {t.sceneDeleteConfirm(showDeleteSceneConfirm.name)}
-      </p>
-      <div class="mt-6 flex gap-3">
-        <button
-          type="button"
-          class="flex-1 rounded-xl bg-stone-100 dark:bg-stone-700 py-3 font-medium text-stone-700 dark:text-stone-200 transition hover:bg-stone-200 dark:hover:bg-stone-600 active:scale-[0.98]"
-          on:click={() => (showDeleteSceneConfirm = null)}
-        >
-          {t.cancel}
-        </button>
-        <button
-          type="button"
-          class="flex-1 rounded-xl bg-red-600 py-3 font-medium text-white transition hover:bg-red-700 active:scale-[0.98]"
-          on:click={confirmDeleteScene}
-        >
-          {t.sceneDelete}
-        </button>
-      </div>
+      </button>
     </div>
-  </div>
-{/if}
-
-{#if showPinSetupModal}
-  <PinSetupModal
-    mode={pinSetupMode}
-    onClose={() => (showPinSetupModal = false)}
-    onSuccess={() => (showPinSetupModal = false)}
-  />
+  </Modal>
 {/if}

@@ -1,7 +1,11 @@
 import type { Response } from "express";
 import { getEntities } from "./entities.js";
 
+/** How often to poll HA for entity changes (ms). */
 const STREAM_INTERVAL_MS = 2000;
+
+/** Maximum concurrent SSE connections allowed. Prevents resource exhaustion. */
+const MAX_CLIENTS = 20;
 
 type Client = { res: Response; lastId: number };
 
@@ -21,6 +25,7 @@ function stopPolling() {
   }
 }
 
+/** Push the latest entity state to all connected SSE clients (if changed). */
 export async function broadcast(): Promise<void> {
   if (clients.size === 0) return;
   try {
@@ -48,7 +53,14 @@ export function triggerBroadcast(): void {
   broadcast();
 }
 
-export function addStreamClient(res: Response): void {
+/**
+ * Register a new SSE client.
+ * Returns `false` if the connection limit has been reached (caller should 503).
+ */
+export function addStreamClient(res: Response): boolean {
+  if (clients.size >= MAX_CLIENTS) {
+    return false;
+  }
   const client: Client = { res, lastId: 0 };
   clients.add(client);
   startPolling();
@@ -57,4 +69,5 @@ export function addStreamClient(res: Response): void {
     clients.delete(client);
     if (clients.size === 0) stopPolling();
   });
+  return true;
 }

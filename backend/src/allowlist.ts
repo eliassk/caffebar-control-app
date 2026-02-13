@@ -1,3 +1,10 @@
+/**
+ * Entity and service allowlist.
+ *
+ * Only entities and services listed in `config/allowlist.json` are
+ * exposed to the frontend. Patterns use a simple `*` glob that
+ * matches any characters _within_ a single domain segment.
+ */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -24,6 +31,7 @@ export function loadAllowlist(configPath?: string): AllowlistConfig {
   return cached;
 }
 
+/** Convert a simple `*` glob into a RegExp, e.g. `light.coffee_*` -> `/^light\.coffee_[^.]*$/`. */
 function patternToRegex(pattern: string): RegExp {
   // Replace * with placeholder before escaping (so * isn’t escaped to \*)
   const withPlaceholder = pattern.replace(/\*/g, "\u0000");

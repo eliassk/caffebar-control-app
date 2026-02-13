@@ -1,6 +1,7 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
+import morgan from "morgan";
 import rateLimit from "express-rate-limit";
 import { existsSync, readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
@@ -37,6 +38,18 @@ function getAppVersion(): string {
 const APP_VERSION = getAppVersion();
 loadLightGroups(join(rootDir, "config", "lightGroups.json"));
 
+/** Only allow origins from RFC 1918 private IP ranges (10.x, 172.16-31.x, 192.168.x) or localhost. */
+function isPrivateNetworkOrigin(origin: string, port: number): boolean {
+  if (!origin.startsWith("http://") || !origin.endsWith(`:${port}`)) return false;
+  const host = origin.slice(7, origin.lastIndexOf(":"));
+  return (
+    host === "localhost" ||
+    host.startsWith("10.") ||
+    host.startsWith("192.168.") ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(host)
+  );
+}
+
 const app = express();
 
 app.use(
@@ -47,8 +60,8 @@ app.use(
         cb(null, true);
         return;
       }
-      // Allow any origin on our port when ALLOW_LOCAL_ORIGINS=true (e.g. http://10.134.10.60:3001)
-      if (ALLOW_LOCAL_ORIGINS && origin.endsWith(`:${PORT}`) && origin.startsWith("http://")) {
+      // Allow private-network origins on our port when ALLOW_LOCAL_ORIGINS=true
+      if (ALLOW_LOCAL_ORIGINS && isPrivateNetworkOrigin(origin, PORT)) {
         cb(null, true);
         return;
       }
@@ -68,7 +81,12 @@ app.use(
   })
 );
 
-app.use(express.json());
+app.use(express.json({ limit: "100kb" }));
+
+// Request logging — 'combined' in production for full details, 'dev' for concise coloured output.
+app.use(morgan(process.env.NODE_ENV === "production" ? "combined" : "dev", {
+  skip: (_req, _res) => _req.url === "/health", // skip noisy health checks
+}));
 
 app.get("/health", (_req, res) => {
   res.json({

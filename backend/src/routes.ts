@@ -23,8 +23,22 @@ import {
   saveChecklistState,
   type ChecklistItem,
 } from "./settings.js";
+import { isValidEntityId, sanitizeColor } from "./validation.js";
 
 const router = Router();
+
+/**
+ * Send a standardised JSON error response.
+ * Use status 502 for upstream HA failures, 500 for internal errors.
+ * In production the `detail` field is omitted to avoid leaking internals.
+ */
+function sendError(res: Response, status: number, message: string, err?: unknown): void {
+  const detail =
+    process.env.NODE_ENV !== "production" && err instanceof Error
+      ? err.message
+      : undefined;
+  res.status(status).json({ error: message, ...(detail && { detail }) });
+}
 
 router.get("/config", (_req: Request, res: Response) => {
   try {
@@ -32,7 +46,7 @@ router.get("/config", (_req: Request, res: Response) => {
     res.json({ light_groups: config.groups });
   } catch (err) {
     console.error("GET /config", err);
-    res.status(500).json({ error: "Failed to load config" });
+    sendError(res, 500, "Failed to load config", err);
   }
 });
 
@@ -43,7 +57,9 @@ router.get("/stream", (req: Request, res: Response) => {
   res.setHeader("Connection", "keep-alive");
   res.setHeader("X-Accel-Buffering", "no");
   res.flushHeaders();
-  addStreamClient(res);
+  if (!addStreamClient(res)) {
+    res.status(503).end("Too many stream connections");
+  }
 });
 
 router.get("/entities", async (_req: Request, res: Response) => {
@@ -52,17 +68,14 @@ router.get("/entities", async (_req: Request, res: Response) => {
     res.json(entities);
   } catch (err) {
     console.error("GET /entities", err);
-    res.status(502).json({
-      error: "Failed to fetch entities",
-      detail: err instanceof Error ? err.message : "Unknown error",
-    });
+    sendError(res, 502, "Failed to fetch entities", err);
   }
 });
 
 router.get("/entities/:entity_id", async (req: Request, res: Response) => {
   const { entity_id } = req.params;
-  if (!entity_id) {
-    res.status(400).json({ error: "entity_id required" });
+  if (!isValidEntityId(entity_id)) {
+    res.status(400).json({ error: "Invalid entity_id format" });
     return;
   }
   if (!isEntityAllowed(entity_id)) {
@@ -87,17 +100,14 @@ router.get("/entities/:entity_id", async (req: Request, res: Response) => {
     res.json(mapState(state));
   } catch (err) {
     console.error("GET /entities/:id", err);
-    res.status(502).json({
-      error: "Failed to fetch entity",
-      detail: err instanceof Error ? err.message : "Unknown error",
-    });
+    sendError(res, 502, "Failed to fetch entity", err);
   }
 });
 
 router.get("/entities/:entity_id/history", async (req: Request, res: Response) => {
   const { entity_id } = req.params;
   const hours = Math.min(168, Math.max(1, Number(req.query.hours) || 24));
-  if (!entity_id || !isEntityAllowed(entity_id)) {
+  if (!isValidEntityId(entity_id) || !isEntityAllowed(entity_id)) {
     res.status(403).json({ error: "Entity not in allowlist" });
     return;
   }
@@ -112,10 +122,7 @@ router.get("/entities/:entity_id/history", async (req: Request, res: Response) =
     res.json(data);
   } catch (err) {
     console.error("GET /entities/:id/history", err);
-    res.status(502).json({
-      error: "Failed to fetch history",
-      detail: err instanceof Error ? err.message : "Unknown error",
-    });
+    sendError(res, 502, "Failed to fetch history", err);
   }
 });
 
@@ -136,7 +143,11 @@ router.post("/service", async (req: Request, res: Response) => {
     payload.entity_id = entity_id;
     const ids = Array.isArray(entity_id) ? entity_id : [entity_id];
     for (const id of ids) {
-      if (typeof id !== "string" || !isEntityAllowed(id)) {
+      if (!isValidEntityId(id)) {
+        res.status(400).json({ error: "Invalid entity_id format" });
+        return;
+      }
+      if (!isEntityAllowed(id)) {
         res.status(403).json({ error: "Entity not in allowlist" });
         return;
       }
@@ -154,17 +165,14 @@ router.post("/service", async (req: Request, res: Response) => {
     res.json({ success: true, result });
   } catch (err) {
     console.error("POST /service", { domain, service, payload }, err);
-    res.status(502).json({
-      error: "Service call failed",
-      detail: err instanceof Error ? err.message : "Unknown error",
-    });
+    sendError(res, 502, "Service call failed", err);
   }
 });
 
 router.post("/toggle", async (req: Request, res: Response) => {
   const { entity_id } = req.body ?? {};
-  if (!entity_id || typeof entity_id !== "string") {
-    res.status(400).json({ error: "entity_id required" });
+  if (!isValidEntityId(entity_id)) {
+    res.status(400).json({ error: "Invalid entity_id format" });
     return;
   }
   if (!isEntityAllowed(entity_id)) {
@@ -192,10 +200,7 @@ router.post("/toggle", async (req: Request, res: Response) => {
     res.json({ success: true, result });
   } catch (err) {
     console.error("POST /toggle", err);
-    res.status(502).json({
-      error: "Toggle failed",
-      detail: err instanceof Error ? err.message : "Unknown error",
-    });
+    sendError(res, 502, "Toggle failed", err);
   }
 });
 
@@ -205,7 +210,7 @@ router.get("/scenes", (_req: Request, res: Response) => {
     res.json(scenes);
   } catch (err) {
     console.error("GET /scenes", err);
-    res.status(500).json({ error: "Failed to load scenes" });
+    sendError(res, 500, "Failed to load scenes", err);
   }
 });
 
@@ -222,12 +227,12 @@ router.post("/scenes", (req: Request, res: Response) => {
   try {
     const scene = createScene(name, entities as SceneEntity[], {
       ...(typeof icon === "string" && { icon }),
-      ...(typeof color === "string" && { color }),
+      ...(sanitizeColor(color) != null && { color: sanitizeColor(color) }),
     });
     res.status(201).json(scene);
   } catch (err) {
     console.error("POST /scenes", err);
-    res.status(500).json({ error: "Failed to create scene" });
+    sendError(res, 500, "Failed to create scene", err);
   }
 });
 
@@ -242,7 +247,7 @@ router.put("/scenes/:id", (req: Request, res: Response) => {
   if (typeof name === "string") updates.name = name;
   if (Array.isArray(entities)) updates.entities = entities as SceneEntity[];
   if (typeof icon === "string") updates.icon = icon;
-  if (typeof color === "string") updates.color = color;
+  if (typeof color === "string") updates.color = sanitizeColor(color) ?? "";
   try {
     const scene = updateScene(id, updates);
     if (!scene) {
@@ -252,7 +257,7 @@ router.put("/scenes/:id", (req: Request, res: Response) => {
     res.json(scene);
   } catch (err) {
     console.error("PUT /scenes/:id", err);
-    res.status(500).json({ error: "Failed to update scene" });
+    sendError(res, 500, "Failed to update scene", err);
   }
 });
 
@@ -271,7 +276,7 @@ router.delete("/scenes/:id", (req: Request, res: Response) => {
     res.status(204).send();
   } catch (err) {
     console.error("DELETE /scenes/:id", err);
-    res.status(500).json({ error: "Failed to delete scene" });
+    sendError(res, 500, "Failed to delete scene", err);
   }
 });
 
@@ -287,10 +292,7 @@ router.post("/scenes/:id/apply", async (req: Request, res: Response) => {
     res.json({ success: true });
   } catch (err) {
     console.error("POST /scenes/:id/apply", err);
-    res.status(502).json({
-      error: "Scene failed",
-      detail: err instanceof Error ? err.message : "Unknown error",
-    });
+    sendError(res, 502, "Scene failed", err);
   }
 });
 
@@ -302,7 +304,7 @@ router.get("/settings/pin", (_req: Request, res: Response) => {
     res.json({ pin_hash });
   } catch (err) {
     console.error("GET /settings/pin", err);
-    res.status(500).json({ error: "Failed to load PIN" });
+    sendError(res, 500, "Failed to load PIN", err);
   }
 });
 
@@ -317,7 +319,7 @@ router.put("/settings/pin", (req: Request, res: Response) => {
     res.json({ success: true });
   } catch (err) {
     console.error("PUT /settings/pin", err);
-    res.status(500).json({ error: "Failed to save PIN" });
+    sendError(res, 500, "Failed to save PIN", err);
   }
 });
 
@@ -327,7 +329,7 @@ router.delete("/settings/pin", (_req: Request, res: Response) => {
     res.status(204).send();
   } catch (err) {
     console.error("DELETE /settings/pin", err);
-    res.status(500).json({ error: "Failed to remove PIN" });
+    sendError(res, 500, "Failed to remove PIN", err);
   }
 });
 
@@ -340,7 +342,7 @@ router.get("/settings/checklist", (_req: Request, res: Response) => {
     res.json({ items, state });
   } catch (err) {
     console.error("GET /settings/checklist", err);
-    res.status(500).json({ error: "Failed to load checklist" });
+    sendError(res, 500, "Failed to load checklist", err);
   }
 });
 
@@ -363,7 +365,7 @@ router.put("/settings/checklist", (req: Request, res: Response) => {
     res.json({ success: true });
   } catch (err) {
     console.error("PUT /settings/checklist", err);
-    res.status(500).json({ error: "Failed to save checklist" });
+    sendError(res, 500, "Failed to save checklist", err);
   }
 });
 

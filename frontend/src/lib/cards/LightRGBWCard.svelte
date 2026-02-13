@@ -174,7 +174,11 @@
     }
   }
 
-  // RGB <-> HSL for hue/saturation picker
+  /**
+   * Convert RGB [0-255] to HSL [h 0-360, s 0-100, l 0-100].
+   * Used by the hue/saturation picker so the user can adjust
+   * hue and saturation independently while keeping luminance.
+   */
   function rgbToHsl([r, g, b]: number[]): [number, number, number] {
     r /= 255; g /= 255; b /= 255;
     const max = Math.max(r, g, b), min = Math.min(r, g, b);
@@ -190,6 +194,7 @@
     return [Math.round(h * 360), Math.round(s * 100), Math.round(l * 100)];
   }
 
+  /** Convert HSL [h 0-360, s 0-100, l 0-100] back to RGB [0-255]. */
   function hslToRgb(h: number, s: number, l: number): [number, number, number] {
     h /= 360; s /= 100; l /= 100;
     let r = l, g = l, b = l;

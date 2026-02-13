@@ -1,3 +1,10 @@
+/**
+ * Entity mapping layer.
+ *
+ * Fetches raw HA states and transforms them into `MappedEntity` objects
+ * with a stable shape for the frontend. We use `entity_id` (snake_case)
+ * throughout to mirror the Home Assistant API convention.
+ */
 import { getStates } from "./ha.js";
 import { isEntityAllowed } from "./allowlist.js";
 import { useDemoMode } from "./ha.js";

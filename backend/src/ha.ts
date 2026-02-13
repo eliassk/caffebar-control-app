@@ -1,3 +1,12 @@
+/**
+ * Home Assistant API client.
+ *
+ * All communication with HA goes through `haFetch()`, which adds the
+ * Bearer token and Content-Type header automatically. The module also
+ * exports helpers to detect whether HA is configured and whether the
+ * app should run in demo mode (mock data).
+ */
+
 const HA_BASE = process.env.HA_BASE_URL ?? "http://homeassistant.local:8123";
 const HA_TOKEN = process.env.HA_TOKEN ?? "";
 
@@ -9,6 +18,7 @@ export interface HAState {
   last_updated?: string;
 }
 
+/** Low-level fetch wrapper that prepends the HA base URL and auth header. */
 async function haFetch(path: string, options: RequestInit = {}): Promise<Response> {
   const url = `${HA_BASE.replace(/\/$/, "")}${path}`;
   const res = await fetch(url, {
@@ -22,6 +32,7 @@ async function haFetch(path: string, options: RequestInit = {}): Promise<Respons
   return res;
 }
 
+/** Fetch all entity states from HA. */
 export async function getStates(): Promise<HAState[]> {
   const res = await haFetch("/api/states");
   if (!res.ok) {
@@ -61,6 +72,11 @@ export async function callService(
   return res.text();
 }
 
+/**
+ * Fetch numeric history for an entity since `startTime`.
+ * Returns sorted {timestamp, value} pairs, extracting temperature
+ * from weather entities' attributes when needed.
+ */
 export async function getHistory(
   entityId: string,
   startTime: Date
