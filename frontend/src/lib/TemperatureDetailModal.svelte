@@ -61,21 +61,22 @@
 
 <svelte:window on:keydown={(e) => e.key === "Escape" && onClose()} />
 
-<!-- svelte-ignore a11y-no-static-element-interactions -->
+<!-- svelte-ignore a11y-no-static-element-interactions a11y-no-noninteractive-element-interactions -->
 <div
   class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 dark:bg-black/60 p-4"
   role="dialog"
   aria-modal="true"
   aria-labelledby="temp-detail-title"
   on:click|self={onClose}
-  on:keydown={(e) => e.key === "Enter" && onClose()}
+  on:keydown={(e) => (e.key === "Escape" || e.key === "Enter") && onClose()}
   tabindex="-1"
 >
-  <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
+  <!-- svelte-ignore a11y-no-static-element-interactions -->
   <div
     class="w-full max-w-md rounded-2xl border border-stone-200 dark:border-stone-600 dark:bg-stone-800 bg-white p-6 shadow-soft-lg"
     role="document"
     on:click|stopPropagation
+    on:keydown={() => {}}
   >
     <div class="flex items-start justify-between gap-4">
       <div>

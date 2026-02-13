@@ -15,6 +15,7 @@ const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS ?? process.env.ALLOWED_ORIG
   .split(",")
   .map((o) => o.trim())
   .filter(Boolean);
+const ALLOW_LOCAL_ORIGINS = process.env.ALLOW_LOCAL_ORIGINS === "true";
 
 // Resolve config path relative to this file (works from any cwd)
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -26,7 +27,13 @@ const app = express();
 app.use(
   cors({
     origin: (origin, cb) => {
+      // Allow: no origin (same-origin), in allowlist, or same host/port (local network)
       if (!origin || ALLOWED_ORIGINS.includes(origin)) {
+        cb(null, true);
+        return;
+      }
+      // Allow any origin on our port when ALLOW_LOCAL_ORIGINS=true (e.g. http://10.134.10.60:3001)
+      if (ALLOW_LOCAL_ORIGINS && origin.endsWith(`:${PORT}`) && origin.startsWith("http://")) {
         cb(null, true);
         return;
       }

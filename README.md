@@ -124,6 +124,8 @@ The script will:
 
 **After install:** Edit `backend/.env` (HA_BASE_URL, HA_TOKEN, ALLOWED_ORIGINS) and `config/*.json` for your entities. Restart: `sudo systemctl restart coffeebar`.
 
+**500 errors loading JS assets?** Ensure `ALLOWED_ORIGINS` includes your access URL (e.g. `http://10.134.10.60:3001`), or set `ALLOW_LOCAL_ORIGINS=true` to allow any origin on your port.
+
 ### Manual install
 
 1. Clone the repo (e.g. `/opt/coffeebar`)

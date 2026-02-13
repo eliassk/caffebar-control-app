@@ -94,7 +94,9 @@
 >
   <div
     class="w-full max-w-sm rounded-2xl border border-stone-200 dark:border-stone-600 dark:bg-stone-800 bg-white p-6 shadow-soft-lg"
+    role="document"
     on:click|stopPropagation
+    on:keydown={() => {}}
   >
     <div class="flex items-center gap-2 mb-4">
       <Lock class="h-5 w-5 text-stone-500" />
