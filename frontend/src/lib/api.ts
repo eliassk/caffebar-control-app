@@ -219,12 +219,13 @@ export async function fetchLightGroupsConfig(): Promise<LightGroupConfig[]> {
   return Array.isArray(json?.light_groups) ? json.light_groups : [];
 }
 
-export async function healthCheck(): Promise<{ ok: boolean; demo_mode?: boolean }> {
+export async function healthCheck(): Promise<{ ok: boolean; demo_mode?: boolean; version?: string }> {
   const res = await fetch(`${BASE}/health`, { credentials: "include" });
   const json = await res.json().catch(() => ({}));
   return {
     ok: res.ok && json.ok === true,
     demo_mode: Boolean(json.demo_mode),
+    version: typeof json.version === "string" ? json.version : undefined,
   };
 }
 

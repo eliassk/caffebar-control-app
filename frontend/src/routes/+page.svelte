@@ -112,6 +112,7 @@
   let showPinSetupModal = false;
   let pinSetupMode: "set" | "change" | "remove" = "set";
   let settingsUnlocked = false;
+  let appVersion = "";
 
   $: tempSensors = entities.filter(
     (e) =>
@@ -206,9 +207,10 @@
 
   async function checkHealth() {
     try {
-      const { ok, demo_mode } = await healthCheck();
+      const { ok, demo_mode, version } = await healthCheck();
       online = ok;
       demoMode = demo_mode ?? false;
+      if (version) appVersion = version;
       if (ok && lastError) load();
     } catch {
       online = false;
@@ -433,8 +435,8 @@
   let checklistNewItem = "";
   let prevShowSettings = false;
   $: if (showSettings && !prevShowSettings) {
-    settingsTitleInput = $customWelcome?.title ?? t.welcomeTitle;
-    settingsDescInput = $customWelcome?.desc ?? t.welcomeDesc;
+    settingsTitleInput = ($customWelcome?.title || "").trim() || t.welcomeTitle;
+    settingsDescInput = ($customWelcome?.desc || "").trim() || t.welcomeDesc;
   }
   $: prevShowSettings = showSettings;
 
@@ -556,6 +558,9 @@
         <Menu class="h-6 w-6" />
       </button>
       <div class="ml-auto flex items-center gap-3">
+        {#if appVersion}
+          <span class="text-xs text-stone-500 dark:text-stone-400" title="{t.settingsVersion}">v{appVersion}</span>
+        {/if}
         {#if demoMode}
           <span class="rounded-full bg-accent/15 px-3 py-1.5 text-xs font-medium text-accent">
             {t.demo}
@@ -912,6 +917,13 @@
                   {t.settingsReset}
                 </button>
               </div>
+              {#if appVersion}
+                <div class="border-t border-stone-200 dark:border-stone-600 pt-6">
+                  <p class="text-xs text-stone-500 dark:text-stone-400">
+                    {t.settingsVersion}: {appVersion}
+                  </p>
+                </div>
+              {/if}
             </div>
           </div>
         {:else}

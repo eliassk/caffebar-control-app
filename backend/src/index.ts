@@ -2,7 +2,7 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import rateLimit from "express-rate-limit";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import router from "./routes.js";
@@ -19,8 +19,23 @@ const ALLOW_LOCAL_ORIGINS = process.env.ALLOW_LOCAL_ORIGINS === "true";
 
 // Resolve config path relative to this file (works from any cwd)
 const __dirname = dirname(fileURLToPath(import.meta.url));
-loadAllowlist(join(__dirname, "..", "..", "config", "allowlist.json"));
-loadLightGroups(join(__dirname, "..", "..", "config", "lightGroups.json"));
+const rootDir = join(__dirname, "..", "..");
+loadAllowlist(join(rootDir, "config", "allowlist.json"));
+
+function getAppVersion(): string {
+  try {
+    const pkgPath = join(rootDir, "package.json");
+    if (existsSync(pkgPath)) {
+      const pkg = JSON.parse(readFileSync(pkgPath, "utf-8")) as { version?: string };
+      return typeof pkg.version === "string" ? pkg.version : "?";
+    }
+  } catch {
+    /* ignore */
+  }
+  return "?";
+}
+const APP_VERSION = getAppVersion();
+loadLightGroups(join(rootDir, "config", "lightGroups.json"));
 
 const app = express();
 
@@ -58,6 +73,7 @@ app.use(express.json());
 app.get("/health", (_req, res) => {
   res.json({
     ok: true,
+    version: APP_VERSION,
     ha_configured: isHaConfigured(),
     demo_mode: useDemoMode(),
     timestamp: new Date().toISOString(),

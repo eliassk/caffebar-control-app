@@ -8,8 +8,8 @@ export default defineConfig({
     VitePWA({
       registerType: "autoUpdate",
       manifest: {
-        name: "Coffee Bar",
-        short_name: "Coffee Bar",
+        name: "Kaffebar",
+        short_name: "Kaffebar",
         description: "Coffee Bar Control Panel",
         theme_color: "#2d1f0f",
         background_color: "#1a1410",

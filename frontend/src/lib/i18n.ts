@@ -21,6 +21,7 @@ export const t = {
   settingsSave: "Zapisz",
   settingsReset: "Przywróć domyślne",
   settingsSaved: "Zapisano",
+  settingsVersion: "Wersja",
 
   // Checklist
   checklistTitle: "Lista zadań",
