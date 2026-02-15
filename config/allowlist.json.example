@@ -9,7 +9,8 @@
     ],
     "patterns": [
       "switch.coffee_*",
-      "light.coffee_*"
+      "light.coffee_*",
+      "mqtt_light.*"
     ]
   },
   "services": [

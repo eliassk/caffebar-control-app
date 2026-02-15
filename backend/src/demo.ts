@@ -226,6 +226,140 @@ const DEMO_ENTITIES: DemoState[] = [
     state: "off",
     attributes: { friendly_name: "Zaplecze: Zmywak", icon: "mdi:water-pump", brightness: 0 },
   },
+  // —— MQTT Lights (demo representations) ——
+  // Bar
+  {
+    entity_id: "mqtt_light.lada_glowne",
+    state: "on",
+    attributes: { friendly_name: "Lada: Główne", icon: "mdi:lightbulb-on", brightness: 220, supported_color_modes: ["brightness"] },
+  },
+  {
+    entity_id: "mqtt_light.lada_spot",
+    state: "on",
+    attributes: { friendly_name: "Lada: Spot", icon: "mdi:lightbulb-on", brightness: 180, supported_color_modes: ["brightness"] },
+  },
+  {
+    entity_id: "mqtt_light.lada_wiszace",
+    state: "on",
+    attributes: { friendly_name: "Lada: Wiszące", icon: "mdi:light-switch", supported_color_modes: ["onoff"] },
+  },
+  {
+    entity_id: "mqtt_light.lada_zaplecze",
+    state: "on",
+    attributes: { friendly_name: "Lada: Zaplecze", icon: "mdi:lightbulb-on", brightness: 150, supported_color_modes: ["brightness"] },
+  },
+  // Sala
+  {
+    entity_id: "mqtt_light.sala_szyny",
+    state: "off",
+    attributes: { friendly_name: "Sala: Szyny", icon: "mdi:light-switch", supported_color_modes: ["onoff"] },
+  },
+  {
+    entity_id: "mqtt_light.sala_wiszace",
+    state: "on",
+    attributes: { friendly_name: "Sala: Wiszące", icon: "mdi:light-switch", supported_color_modes: ["onoff"] },
+  },
+  {
+    entity_id: "mqtt_light.sala_spot",
+    state: "on",
+    attributes: { friendly_name: "Sala: Spot", icon: "mdi:lightbulb-on", brightness: 180, supported_color_modes: ["brightness"] },
+  },
+  // Zaplecze
+  {
+    entity_id: "mqtt_light.zaplecze_zmywak",
+    state: "off",
+    attributes: { friendly_name: "Zaplecze: Zmywak", icon: "mdi:lightbulb-on", brightness: 0, supported_color_modes: ["brightness"] },
+  },
+  {
+    entity_id: "mqtt_light.zaplecze_wejscie",
+    state: "on",
+    attributes: { friendly_name: "Zaplecze: Wejście", icon: "mdi:lightbulb-on", brightness: 200, supported_color_modes: ["brightness"] },
+  },
+  // Kasetony (RGBW)
+  {
+    entity_id: "mqtt_light.kaseton_all",
+    state: "on",
+    attributes: {
+      friendly_name: "Kaseton ALL",
+      icon: "mdi:led-strip-variant",
+      brightness: 255,
+      rgb_color: [255, 200, 150],
+      white_value: 200,
+      supported_color_modes: ["rgbw"],
+    },
+  },
+  {
+    entity_id: "mqtt_light.kaseton_g1",
+    state: "on",
+    attributes: {
+      friendly_name: "Kaseton G1",
+      icon: "mdi:led-strip-variant",
+      brightness: 255,
+      rgb_color: [255, 200, 150],
+      white_value: 180,
+      supported_color_modes: ["rgbw"],
+    },
+  },
+  {
+    entity_id: "mqtt_light.kaseton_g2",
+    state: "on",
+    attributes: {
+      friendly_name: "Kaseton G2",
+      icon: "mdi:led-strip-variant",
+      brightness: 255,
+      rgb_color: [255, 200, 150],
+      white_value: 180,
+      supported_color_modes: ["rgbw"],
+    },
+  },
+  {
+    entity_id: "mqtt_light.kaseton_g3",
+    state: "off",
+    attributes: {
+      friendly_name: "Kaseton G3",
+      icon: "mdi:led-strip-variant",
+      brightness: 0,
+      rgb_color: [0, 0, 0],
+      white_value: 0,
+      supported_color_modes: ["rgbw"],
+    },
+  },
+  {
+    entity_id: "mqtt_light.kaseton_g4",
+    state: "off",
+    attributes: {
+      friendly_name: "Kaseton G4",
+      icon: "mdi:led-strip-variant",
+      brightness: 0,
+      rgb_color: [0, 0, 0],
+      white_value: 0,
+      supported_color_modes: ["rgbw"],
+    },
+  },
+  {
+    entity_id: "mqtt_light.kaseton_g5",
+    state: "off",
+    attributes: {
+      friendly_name: "Kaseton G5",
+      icon: "mdi:led-strip-variant",
+      brightness: 0,
+      rgb_color: [0, 0, 0],
+      white_value: 0,
+      supported_color_modes: ["rgbw"],
+    },
+  },
+  {
+    entity_id: "mqtt_light.kaseton_g6",
+    state: "off",
+    attributes: {
+      friendly_name: "Kaseton G6",
+      icon: "mdi:led-strip-variant",
+      brightness: 0,
+      rgb_color: [0, 0, 0],
+      white_value: 0,
+      supported_color_modes: ["rgbw"],
+    },
+  },
   // —— Climate floor warming (FloorWarmingCard) ——
   {
     entity_id: "climate.coffee_bar_floor",
@@ -322,7 +456,7 @@ export function demoCallService(
     if (typeof id !== "string") continue;
     const e = state.get(id);
     if (!e) continue;
-    if (domain === "switch" || domain === "light") {
+    if (domain === "switch" || domain === "light" || domain === "mqtt_light") {
       if (service === "toggle") {
         e.state = e.state === "on" ? "off" : "on";
       } else if (service === "turn_on") {

@@ -13,6 +13,7 @@ import { callService } from "./ha.js";
 import { useDemoMode } from "./ha.js";
 import { demoCallService } from "./demo.js";
 import { isEntityAllowed, isServiceAllowed } from "./allowlist.js";
+import { isMqttEntity, handleMqttService } from "./mqtt.js";
 
 export interface SceneEntity {
   entity_id: string;
@@ -142,6 +143,20 @@ export async function applyScene(sceneId: string): Promise<void> {
   for (const ent of scene.entities) {
     const domain = ent.entity_id.split(".")[0];
     const attrs = ent.attributes ?? {};
+
+    // Route MQTT entities to the MQTT handler
+    if (isMqttEntity(ent.entity_id)) {
+      if (ent.state === "off") {
+        await handleMqttService("light", "turn_off", ent.entity_id);
+      } else {
+        const data: Record<string, unknown> = {};
+        if (typeof attrs.brightness === "number") data.brightness = attrs.brightness;
+        if (Array.isArray(attrs.rgb_color)) data.rgb_color = attrs.rgb_color;
+        if (typeof attrs.white_value === "number") data.white_value = attrs.white_value;
+        await handleMqttService("light", "turn_on", ent.entity_id, data);
+      }
+      continue;
+    }
 
     if (domain === "light" || domain === "switch") {
       if (ent.state === "off") {

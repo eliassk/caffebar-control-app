@@ -10,6 +10,7 @@ import { isEntityAllowed } from "./allowlist.js";
 import { useDemoMode } from "./ha.js";
 import { getDemoStates } from "./demo.js";
 import { getDisplayName } from "./entityNames.js";
+import { getMqttEntities } from "./mqtt.js";
 
 export interface MappedEntity {
   entity_id: string;
@@ -29,7 +30,9 @@ export function mapState(state: {
     friendly_name?: string;
     icon?: string;
   };
-  const domain = state.entity_id.split(".")[0];
+  const rawDomain = state.entity_id.split(".")[0];
+  // Treat mqtt_light entities as "light" so the frontend groups them with other lights
+  const domain = rawDomain === "mqtt_light" ? "light" : rawDomain;
   const rawName = attrs.friendly_name ?? state.entity_id;
   const friendly_name = getDisplayName(state.entity_id, String(rawName));
   return {
@@ -44,10 +47,15 @@ export function mapState(state: {
 
 export async function getEntities(): Promise<MappedEntity[]> {
   if (useDemoMode()) {
+    // Demo mode already includes MQTT light representations
     return getDemoStates().map(mapState);
   }
-  const states = await getStates();
-  return states
+
+  const haEntities = (await getStates())
     .filter((s) => isEntityAllowed(s.entity_id))
     .map(mapState);
+
+  // Merge MQTT-based lights (filtered through the same allowlist)
+  const mqttEntities = getMqttEntities().filter((e) => isEntityAllowed(e.entity_id));
+  return [...haEntities, ...mqttEntities];
 }

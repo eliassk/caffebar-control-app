@@ -12,174 +12,66 @@
   export let onServiceCallEnd: (entityId: string) => void = () => {};
   export let onError: (message: string) => void = () => {};
 
+  // ── Reactive entity state ──────────────────────────────────────────
+
   $: attrs = entity.attributes as Record<string, unknown>;
   $: isOn = entity.state === "on";
-  $: brightness = typeof attrs.brightness === "number" ? Math.round((attrs.brightness / 255) * 100) : 0;
   $: whiteValue = typeof attrs.white_value === "number" ? Math.round((attrs.white_value / 255) * 100) : 0;
-  $: rgb = Array.isArray(attrs.rgb_color) ? (attrs.rgb_color as number[]) : [255, 255, 255];
+  $: serverRgb = Array.isArray(attrs.rgb_color) ? (attrs.rgb_color as number[]) : [255, 255, 255];
   $: unavailable = entity.state === "unavailable" || entity.state === "unknown";
 
-  let sliderValue = brightness;
-  let whiteSliderValue = whiteValue;
-  let userIsInteracting = false;
-  let whiteUserInteracting = false;
-  let inputDebounce: ReturnType<typeof setTimeout> | null = null;
-  let whiteInputDebounce: ReturnType<typeof setTimeout> | null = null;
-  $: if (!userIsInteracting && !busy && sliderValue !== brightness) {
-    sliderValue = brightness;
+  // Local override during wheel drag — falls back to server state
+  let localRgb: number[] | null = null;
+  $: displayRgb = localRgb ?? serverRgb;
+  $: [displayHue, displaySat] = rgbToHs(displayRgb);
+
+  // Sync localRgb back to server when not interacting
+  $: if (!wheelDragging && !busy && localRgb !== null) {
+    localRgb = null;
   }
-  $: if (!whiteUserInteracting && !userIsInteracting && !busy && whiteSliderValue !== whiteValue) {
+
+  // Card background tint from the current light color (subtle wash)
+  $: cardBg = isOn
+    ? `rgba(${displayRgb[0]}, ${displayRgb[1]}, ${displayRgb[2]}, 0.15)`
+    : "";
+
+  // ── White slider local state ───────────────────────────────────────
+
+  let whiteSliderValue = whiteValue;
+  let whiteUserInteracting = false;
+  let whiteDebounce: ReturnType<typeof setTimeout> | null = null;
+  $: if (!whiteUserInteracting && !busy && whiteSliderValue !== whiteValue) {
     whiteSliderValue = whiteValue;
   }
 
-  function scheduleBrightnessUpdate() {
-    const value = Number(sliderValue);
-    if (Number.isNaN(value)) return;
-    userIsInteracting = true;
-    if (inputDebounce) clearTimeout(inputDebounce);
-    inputDebounce = setTimeout(() => {
-      inputDebounce = null;
-      setBrightness(value).finally(() => {
-        userIsInteracting = false;
-      });
-    }, 120);
-  }
+  // ── Color wheel ────────────────────────────────────────────────────
 
-  function finishInteraction() {
-    if (inputDebounce) {
-      clearTimeout(inputDebounce);
-      inputDebounce = null;
-      setBrightness(Number(sliderValue)).finally(() => {
-        userIsInteracting = false;
-      });
-    } else {
-      userIsInteracting = false;
-    }
-  }
+  const WHEEL_SIZE = 160;
+  let canvasEl: HTMLCanvasElement;
+  let wheelDragging = false;
+  let colorDebounce: ReturnType<typeof setTimeout> | null = null;
+  let pendingRgb: number[] | null = null;
 
-  const PRESETS = [
+  // ── 8 Presets ──────────────────────────────────────────────────────
+
+  const PRESETS: { name: string; rgb: [number, number, number] }[] = [
     { name: t.presetWarm, rgb: [255, 180, 120] },
     { name: t.presetCool, rgb: [200, 220, 255] },
     { name: t.presetWhite, rgb: [255, 255, 255] },
     { name: t.presetAmber, rgb: [255, 200, 80] },
+    { name: t.presetRed, rgb: [255, 50, 50] },
+    { name: t.presetGreen, rgb: [50, 255, 50] },
+    { name: t.presetBlue, rgb: [50, 50, 255] },
+    { name: t.presetPurple, rgb: [180, 50, 255] },
   ];
 
-  async function toggle(e: MouseEvent) {
-    e.stopPropagation();
-    if (unavailable || busy) return;
-    onServiceCallStart(entity.entity_id);
-    try {
-      if (isOn) {
-        await callService("light", "turn_off", entity.entity_id);
-      } else {
-        const hasColor = sat > 0;
-        await callService("light", "turn_on", entity.entity_id, {
-          brightness: 255,
-          rgb_color: rgb,
-          white_value: hasColor ? 0 : Math.round((whiteSliderValue / 100) * 255),
-        });
-      }
-      onUpdate();
-    } catch (e) {
-      onError(e instanceof Error ? e.message : String(e));
-    } finally {
-      onServiceCallEnd(entity.entity_id);
-    }
-  }
+  // ══════════════════════════════════════════════════════════════════
+  //  Color conversion helpers
+  // ══════════════════════════════════════════════════════════════════
 
-  async function setBrightness(value: number) {
-    if (unavailable || busy) return;
-    const num = Number(value);
-    if (Number.isNaN(num)) return;
-    onServiceCallStart(entity.entity_id);
-    try {
-      if (num <= 0) {
-        await callService("light", "turn_off", entity.entity_id);
-      } else {
-        const b = Math.round((num / 100) * 255);
-        const hasColor = sat > 0;
-        await callService("light", "turn_on", entity.entity_id, {
-          brightness: b,
-          rgb_color: rgb,
-          white_value: hasColor ? 0 : Math.round((whiteSliderValue / 100) * 255),
-        });
-      }
-      onUpdate();
-    } catch (e) {
-      onError(e instanceof Error ? e.message : String(e));
-    } finally {
-      onServiceCallEnd(entity.entity_id);
-    }
-  }
-
-  async function setColor(r: number, g: number, b: number) {
-    if (unavailable || busy) return;
-    whiteSliderValue = 0; // color chosen → white off
-    onServiceCallStart(entity.entity_id);
-    try {
-      await callService("light", "turn_on", entity.entity_id, {
-        rgb_color: [r, g, b],
-        brightness: Math.round((sliderValue / 100) * 255),
-        white_value: 0,
-      });
-      onUpdate();
-    } catch (e) {
-      onError(e instanceof Error ? e.message : String(e));
-    } finally {
-      onServiceCallEnd(entity.entity_id);
-    }
-  }
-
-  function scheduleWhiteUpdate() {
-    const value = Number(whiteSliderValue);
-    if (Number.isNaN(value)) return;
-    whiteUserInteracting = true;
-    if (whiteInputDebounce) clearTimeout(whiteInputDebounce);
-    whiteInputDebounce = setTimeout(() => {
-      whiteInputDebounce = null;
-      setWhiteValue(value).finally(() => {
-        whiteUserInteracting = false;
-      });
-    }, 120);
-  }
-
-  function finishWhiteInteraction() {
-    if (whiteInputDebounce) {
-      clearTimeout(whiteInputDebounce);
-      whiteInputDebounce = null;
-      setWhiteValue(Number(whiteSliderValue)).finally(() => {
-        whiteUserInteracting = false;
-      });
-    } else {
-      whiteUserInteracting = false;
-    }
-  }
-
-  async function setWhiteValue(value: number) {
-    if (unavailable || busy) return;
-    const v = Math.round(Math.max(0, Math.min(100, value)));
-    whiteSliderValue = v;
-    onServiceCallStart(entity.entity_id);
-    try {
-      await callService("light", "turn_on", entity.entity_id, {
-        rgb_color: rgb,
-        brightness: Math.round((sliderValue / 100) * 255),
-        white_value: Math.round((v / 100) * 255),
-      });
-      onUpdate();
-    } catch (e) {
-      onError(e instanceof Error ? e.message : String(e));
-    } finally {
-      onServiceCallEnd(entity.entity_id);
-    }
-  }
-
-  /**
-   * Convert RGB [0-255] to HSL [h 0-360, s 0-100, l 0-100].
-   * Used by the hue/saturation picker so the user can adjust
-   * hue and saturation independently while keeping luminance.
-   */
-  function rgbToHsl([r, g, b]: number[]): [number, number, number] {
+  /** RGB [0-255] → [hue 0-360, saturation 0-100]. */
+  function rgbToHs(rgbArr: number[]): [number, number] {
+    let [r, g, b] = rgbArr;
     r /= 255; g /= 255; b /= 255;
     const max = Math.max(r, g, b), min = Math.min(r, g, b);
     let h = 0, s = 0;
@@ -191,19 +83,19 @@
       else if (max === g) h = ((b - r) / d + 2) / 6;
       else h = ((r - g) / d + 4) / 6;
     }
-    return [Math.round(h * 360), Math.round(s * 100), Math.round(l * 100)];
+    return [Math.round(h * 360), Math.round(s * 100)];
   }
 
-  /** Convert HSL [h 0-360, s 0-100, l 0-100] back to RGB [0-255]. */
+  /** HSL [h 0-360, s 0-100, l 0-100] → RGB [0-255]. */
   function hslToRgb(h: number, s: number, l: number): [number, number, number] {
     h /= 360; s /= 100; l /= 100;
     let r = l, g = l, b = l;
     if (s > 0) {
       const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
       const p = 2 * l - q;
-      r = hue2rgb(p, q, h + 1/3);
+      r = hue2rgb(p, q, h + 1 / 3);
       g = hue2rgb(p, q, h);
-      b = hue2rgb(p, q, h - 1/3);
+      b = hue2rgb(p, q, h - 1 / 3);
     }
     return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
   }
@@ -211,43 +103,269 @@
   function hue2rgb(p: number, q: number, t: number): number {
     if (t < 0) t += 1;
     if (t > 1) t -= 1;
-    if (t < 1/6) return p + (q - p) * 6 * t;
-    if (t < 1/2) return q;
-    if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+    if (t < 1 / 6) return p + (q - p) * 6 * t;
+    if (t < 1 / 2) return q;
+    if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
     return p;
   }
 
-  $: [hue, sat, light] = rgbToHsl(rgb);
-  let hueInput = hue;
-  let satInput = sat;
-  $: if (!busy) { hueInput = hue; satInput = sat; }
+  // ══════════════════════════════════════════════════════════════════
+  //  Canvas — draw the color wheel once on mount
+  // ══════════════════════════════════════════════════════════════════
 
-  function applyHueSat() {
-    const [r, g, b] = hslToRgb(hueInput, satInput, Math.max(0.3, light));
-    setColor(r, g, b);
+  function drawWheel() {
+    if (!canvasEl) return;
+    const ctx = canvasEl.getContext("2d");
+    if (!ctx) return;
+
+    const dpr = window.devicePixelRatio || 1;
+    const pxSize = Math.round(WHEEL_SIZE * dpr);
+    canvasEl.width = pxSize;
+    canvasEl.height = pxSize;
+
+    const cx = pxSize / 2;
+    const cy = pxSize / 2;
+    const radius = pxSize / 2 - 1;
+
+    const imageData = ctx.createImageData(pxSize, pxSize);
+    const data = imageData.data;
+
+    for (let py = 0; py < pxSize; py++) {
+      for (let px = 0; px < pxSize; px++) {
+        const dx = px - cx;
+        const dy = py - cy;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        if (dist <= radius) {
+          const angle = ((Math.atan2(dy, dx) * 180) / Math.PI + 360) % 360;
+          const saturation = Math.min((dist / radius) * 100, 100);
+          const [r, g, b] = hslToRgb(angle, saturation, 50);
+          const i = (py * pxSize + px) * 4;
+          data[i] = r;
+          data[i + 1] = g;
+          data[i + 2] = b;
+          data[i + 3] = 255;
+        }
+      }
+    }
+
+    ctx.putImageData(imageData, 0, 0);
   }
 
-  // Card background tint from current RGB
+  // Draw when canvas is in DOM (card expanded); onMount runs before canvas exists when collapsed by default
+  $: if (expanded && canvasEl) {
+    drawWheel();
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  //  Wheel pointer interaction
+  // ══════════════════════════════════════════════════════════════════
+
+  function getWheelColor(clientX: number, clientY: number): [number, number, number] | null {
+    if (!canvasEl) return null;
+    const rect = canvasEl.getBoundingClientRect();
+    const cx = rect.width / 2;
+    const cy = rect.height / 2;
+    const radius = cx - 1;
+
+    const x = clientX - rect.left - cx;
+    const y = clientY - rect.top - cy;
+    const dist = Math.sqrt(x * x + y * y);
+
+    // Clamp to edge of wheel
+    const clampedDist = Math.min(dist, radius);
+    const angle = ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
+    const saturation = Math.min((clampedDist / radius) * 100, 100);
+    return hslToRgb(angle, saturation, 50);
+  }
+
+  function onWheelPointerDown(e: PointerEvent) {
+    if (unavailable || busy) return;
+    wheelDragging = true;
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    pickFromWheel(e);
+  }
+
+  function onWheelPointerMove(e: PointerEvent) {
+    if (!wheelDragging) return;
+    pickFromWheel(e);
+  }
+
+  function onWheelPointerUp() {
+    if (!wheelDragging) return;
+    wheelDragging = false;
+    // Flush any pending debounced color immediately
+    if (colorDebounce) {
+      clearTimeout(colorDebounce);
+      colorDebounce = null;
+    }
+    if (pendingRgb) {
+      const [r, g, b] = pendingRgb;
+      pendingRgb = null;
+      sendColor(r, g, b);
+    }
+  }
+
+  function pickFromWheel(e: PointerEvent) {
+    const color = getWheelColor(e.clientX, e.clientY);
+    if (!color) return;
+    localRgb = color; // Instant visual feedback
+    pendingRgb = color;
+
+    if (colorDebounce) clearTimeout(colorDebounce);
+    colorDebounce = setTimeout(() => {
+      colorDebounce = null;
+      if (pendingRgb) {
+        const [r, g, b] = pendingRgb;
+        pendingRgb = null;
+        sendColor(r, g, b);
+      }
+    }, 200);
+  }
+
+  // ── Indicator position from current hue + sat ──────────────────────
+
+  $: indicatorPos = (() => {
+    const r = WHEEL_SIZE / 2 - 1;
+    const angle = (displayHue * Math.PI) / 180;
+    const dist = (displaySat / 100) * r;
+    return {
+      x: WHEEL_SIZE / 2 + Math.cos(angle) * dist,
+      y: WHEEL_SIZE / 2 + Math.sin(angle) * dist,
+    };
+  })();
+
+  // ══════════════════════════════════════════════════════════════════
+  //  Service calls
+  // ══════════════════════════════════════════════════════════════════
+
+  async function toggle(e: MouseEvent) {
+    e.stopPropagation();
+    if (unavailable || busy) return;
+    onServiceCallStart(entity.entity_id);
+    try {
+      if (isOn) {
+        await callService("light", "turn_off", entity.entity_id);
+      } else {
+        await callService("light", "turn_on", entity.entity_id, {
+          rgb_color: serverRgb,
+          white_value: Math.round((whiteSliderValue / 100) * 255),
+        });
+      }
+      onUpdate();
+    } catch (err) {
+      onError(err instanceof Error ? err.message : String(err));
+    } finally {
+      onServiceCallEnd(entity.entity_id);
+    }
+  }
+
+  /** Send only RGB (does not affect white channel). */
+  async function sendColor(r: number, g: number, b: number) {
+    if (unavailable || busy) return;
+    onServiceCallStart(entity.entity_id);
+    try {
+      await callService("light", "turn_on", entity.entity_id, {
+        rgb_color: [r, g, b],
+      });
+      onUpdate();
+    } catch (err) {
+      onError(err instanceof Error ? err.message : String(err));
+    } finally {
+      onServiceCallEnd(entity.entity_id);
+    }
+  }
+
+  /** Apply a color preset (sends only RGB). */
+  async function applyPreset(presetRgb: [number, number, number]) {
+    if (unavailable || busy) return;
+    localRgb = presetRgb;
+    onServiceCallStart(entity.entity_id);
+    try {
+      await callService("light", "turn_on", entity.entity_id, {
+        rgb_color: presetRgb,
+      });
+      onUpdate();
+    } catch (err) {
+      onError(err instanceof Error ? err.message : String(err));
+    } finally {
+      onServiceCallEnd(entity.entity_id);
+    }
+  }
+
+  // ── White slider ───────────────────────────────────────────────────
+
+  function scheduleWhiteUpdate() {
+    const value = Number(whiteSliderValue);
+    if (Number.isNaN(value)) return;
+    whiteUserInteracting = true;
+    if (whiteDebounce) clearTimeout(whiteDebounce);
+    whiteDebounce = setTimeout(() => {
+      whiteDebounce = null;
+      setWhiteValue(value).finally(() => {
+        whiteUserInteracting = false;
+      });
+    }, 150);
+  }
+
+  function finishWhiteInteraction() {
+    if (whiteDebounce) {
+      clearTimeout(whiteDebounce);
+      whiteDebounce = null;
+      setWhiteValue(Number(whiteSliderValue)).finally(() => {
+        whiteUserInteracting = false;
+      });
+    } else {
+      whiteUserInteracting = false;
+    }
+  }
+
+  /** Send only white_value (does not affect RGB channels). */
+  async function setWhiteValue(value: number) {
+    if (unavailable || busy) return;
+    const v = Math.round(Math.max(0, Math.min(100, value)));
+    onServiceCallStart(entity.entity_id);
+    try {
+      await callService("light", "turn_on", entity.entity_id, {
+        white_value: Math.round((v / 100) * 255),
+      });
+      onUpdate();
+    } catch (err) {
+      onError(err instanceof Error ? err.message : String(err));
+    } finally {
+      onServiceCallEnd(entity.entity_id);
+    }
+  }
 </script>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!--  Template                                                      -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
 
 <div
   class="overflow-hidden rounded-2xl border border-stone-200/80 dark:border-stone-600 p-4 shadow-soft transition hover:shadow-soft-lg {isOn
-    ? 'bg-amber-50/90 dark:bg-amber-900/30'
+    ? 'dark:bg-stone-800/80 bg-white/80'
     : 'bg-stone-50/90 dark:bg-stone-800'}"
+  style={isOn && cardBg ? `background-color: ${cardBg}` : ""}
 >
+  <!-- Header: name + on/off toggle + expand chevron -->
   <div
     class="flex cursor-pointer items-start justify-between gap-3"
     role="button"
     tabindex="0"
     on:click={() => (expanded = !expanded)}
-    on:keydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); expanded = !expanded; } }}
+    on:keydown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); expanded = !expanded; } }}
   >
     <div class="min-w-0 flex-1">
       <p class="font-display text-2xl font-bold tabular-nums text-stone-800 dark:text-stone-200">
         {entity.friendly_name}
       </p>
       <p class="mt-0.5 text-sm font-medium text-stone-500 dark:text-stone-400">
-        {isOn ? `${sliderValue}%` : t.off}
+        {#if isOn}
+          {t.on}{whiteSliderValue > 0 ? ` · W: ${whiteSliderValue}%` : ""}
+        {:else}
+          {t.off}
+        {/if}
       </p>
     </div>
     <div class="flex shrink-0 items-center gap-2">
@@ -279,81 +397,62 @@
   </div>
 
   {#if expanded}
-  <div class="mt-4 space-y-3">
+  <!-- Color wheel -->
+  <div
+    class="relative mx-auto mt-4 touch-none {unavailable || busy ? 'opacity-40 pointer-events-none' : ''} {!isOn ? 'opacity-60' : ''}"
+    style="width: {WHEEL_SIZE}px; height: {WHEEL_SIZE}px;"
+  >
+    <canvas
+      bind:this={canvasEl}
+      class="block rounded-full"
+      style="width: {WHEEL_SIZE}px; height: {WHEEL_SIZE}px;"
+      on:pointerdown={onWheelPointerDown}
+      on:pointermove={onWheelPointerMove}
+      on:pointerup={onWheelPointerUp}
+      on:pointercancel={onWheelPointerUp}
+    ></canvas>
+    <!-- Selection indicator -->
+    {#if isOn || wheelDragging}
+      <div
+        class="pointer-events-none absolute h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-[2.5px] border-white shadow-md"
+        style="left: {indicatorPos.x}px; top: {indicatorPos.y}px; background: rgb({displayRgb[0]},{displayRgb[1]},{displayRgb[2]});"
+      ></div>
+    {/if}
+  </div>
+
+  <!-- 8 color presets -->
+  <div class="mt-3 flex flex-wrap justify-center gap-2">
+    {#each PRESETS as preset}
+      <button
+        type="button"
+        class="h-8 w-8 rounded-full border-2 border-stone-200/80 dark:border-stone-500/60 shadow-sm transition-transform hover:scale-110 active:scale-95 disabled:opacity-40 disabled:pointer-events-none"
+        style="background: rgb({preset.rgb.join(',')})"
+        disabled={busy || unavailable}
+        on:click={() => applyPreset(preset.rgb)}
+      >
+        <span class="sr-only">{preset.name}</span>
+      </button>
+    {/each}
+  </div>
+
+  <!-- White channel slider -->
+  <div class="mt-4">
+    <div class="mb-1 flex items-center justify-between">
+      <p class="text-xs font-medium text-stone-500 dark:text-stone-400">{t.whiteChannel}</p>
+      <p class="text-xs tabular-nums text-stone-500 dark:text-stone-400">{whiteSliderValue}%</p>
+    </div>
     <input
       type="range"
       min="0"
       max="100"
-      bind:value={sliderValue}
-      on:input={scheduleBrightnessUpdate}
-      on:change={finishInteraction}
-      on:mouseup={finishInteraction}
-      on:touchend={finishInteraction}
+      bind:value={whiteSliderValue}
+      on:input={scheduleWhiteUpdate}
+      on:change={finishWhiteInteraction}
+      on:mouseup={finishWhiteInteraction}
+      on:touchend={finishWhiteInteraction}
       disabled={busy || unavailable}
-      class="h-2.5 w-full appearance-none rounded-full bg-stone-200/80 dark:bg-stone-600/80 disabled:opacity-50"
+      class="white-slider h-3 w-full appearance-none rounded-full disabled:opacity-50"
     />
-
-    <div class="flex flex-wrap items-center gap-2">
-      {#each PRESETS as preset}
-        <button
-          type="button"
-          class="h-8 w-8 rounded-lg border-2 border-stone-200 dark:border-stone-600 shadow-sm transition hover:scale-105 disabled:opacity-50"
-          style="background: rgb({preset.rgb.join(',')})"
-          disabled={!isOn || busy || unavailable}
-          on:click={() => setColor(...preset.rgb)}
-        >
-          <span class="sr-only">{preset.name}</span>
-        </button>
-      {/each}
-    </div>
-
-    <div class="flex flex-col gap-3">
-      <div class="flex flex-col gap-1.5">
-        <p class="text-xs font-medium text-stone-500 dark:text-stone-400">{t.colorSlider}</p>
-        <div class="flex items-center gap-2">
-          <input
-            type="range"
-            min="0"
-            max="360"
-            bind:value={hueInput}
-            disabled={!isOn || busy || unavailable}
-            on:change={applyHueSat}
-            class="hue-slider color-slider h-3 flex-1 appearance-none rounded-full disabled:opacity-50"
-          />
-        </div>
-      </div>
-      <div class="flex flex-col gap-1.5">
-        <p class="text-xs font-medium text-stone-500 dark:text-stone-400">{t.colorIntensity}</p>
-        <div class="flex items-center gap-2">
-          <input
-            type="range"
-            min="0"
-            max="100"
-            bind:value={satInput}
-            disabled={!isOn || busy || unavailable}
-            on:change={applyHueSat}
-            class="color-slider h-3 flex-1 appearance-none rounded-full bg-stone-200 dark:bg-stone-600 disabled:opacity-50"
-          />
-        </div>
-      </div>
-      <div class="flex flex-col gap-1.5">
-        <p class="text-xs font-medium text-stone-500 dark:text-stone-400">{t.whiteIntensity}</p>
-        <div class="flex items-center gap-2">
-          <input
-            type="range"
-            min="0"
-            max="100"
-            bind:value={whiteSliderValue}
-            disabled={!isOn || busy || unavailable}
-            on:input={scheduleWhiteUpdate}
-            on:change={finishWhiteInteraction}
-            on:mouseup={finishWhiteInteraction}
-            on:touchend={finishWhiteInteraction}
-            class="color-slider h-3 flex-1 appearance-none rounded-full bg-stone-200 dark:bg-stone-600 disabled:opacity-50"
-          />
-        </div>
-      </div>
-    </div>
   </div>
   {/if}
 </div>

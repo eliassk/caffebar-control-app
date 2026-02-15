@@ -1,0 +1,30 @@
+{
+  "base_topic": "lighting",
+  "lights": [
+    {
+      "id": "sala_spot",
+      "name": "Sala: Spoty",
+      "type": "dimmer",
+      "router_id": "router-1",
+      "group_id": 10
+    },
+    {
+      "id": "zaplecze",
+      "name": "Zaplecze",
+      "type": "toggle",
+      "router_id": "router-1",
+      "group_id": 3
+    },
+    {
+      "id": "kaseton_all",
+      "name": "Kaseton All RGBW",
+      "type": "rgbw",
+      "channels": {
+        "r": { "router_id": "router-1", "group_id": 11 },
+        "g": { "router_id": "router-1", "group_id": 12 },
+        "b": { "router_id": "router-1", "group_id": 13 },
+        "w": { "router_id": "router-1", "group_id": 14 }
+      }
+    }
+  ]
+}

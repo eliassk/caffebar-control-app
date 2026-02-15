@@ -138,10 +138,11 @@ export const t = {
   presetCool: "Chłodny",
   presetWhite: "Biały",
   presetAmber: "Bursztyn",
-  customColor: "Wybierz kolor",
-  colorSlider: "Kolor",
-  colorIntensity: "Intensywność koloru",
-  whiteIntensity: "Intensywność bieli",
+  presetRed: "Czerwony",
+  presetGreen: "Zielony",
+  presetBlue: "Niebieski",
+  presetPurple: "Fioletowy",
+  whiteChannel: "Kanał biały",
 
   // Empty state
   noEntities: "Brak jednostek na liście dozwolonych.",

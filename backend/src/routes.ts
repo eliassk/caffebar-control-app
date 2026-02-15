@@ -24,6 +24,7 @@ import {
   type ChecklistItem,
 } from "./settings.js";
 import { isValidEntityId, sanitizeColor } from "./validation.js";
+import { isMqttEntity, handleMqttService } from "./mqtt.js";
 
 const router = Router();
 
@@ -154,12 +155,23 @@ router.post("/service", async (req: Request, res: Response) => {
     }
   }
   try {
+    // Demo mode handles all entities (including MQTT lights) via in-memory state
     if (useDemoMode()) {
       demoCallService(domain, service, payload);
       triggerBroadcast();
       res.json({ success: true, result: null });
       return;
     }
+
+    // Route MQTT entities to the MQTT handler
+    const singleId = typeof entity_id === "string" ? entity_id : undefined;
+    if (singleId && isMqttEntity(singleId)) {
+      await handleMqttService(domain, service, singleId, payload);
+      triggerBroadcast();
+      res.json({ success: true, result: null });
+      return;
+    }
+
     const result = await callService(domain, service, payload);
     triggerBroadcast();
     res.json({ success: true, result });
@@ -179,6 +191,24 @@ router.post("/toggle", async (req: Request, res: Response) => {
     res.status(403).json({ error: "Entity not in allowlist" });
     return;
   }
+
+  // Route MQTT entities — demo mode uses in-memory state, real mode uses MQTT broker
+  if (isMqttEntity(entity_id)) {
+    try {
+      if (useDemoMode()) {
+        demoCallService("mqtt_light", "toggle", { entity_id });
+      } else {
+        await handleMqttService("light", "toggle", entity_id);
+      }
+      triggerBroadcast();
+      res.json({ success: true, result: null });
+    } catch (err) {
+      console.error("POST /toggle (mqtt)", err);
+      sendError(res, 502, "Toggle failed", err);
+    }
+    return;
+  }
+
   const domain = entity_id.split(".")[0];
   if (domain !== "switch" && domain !== "light") {
     res.status(400).json({ error: "toggle only for switch or light" });

@@ -10,6 +10,7 @@ import router from "./routes.js";
 import { loadAllowlist } from "./allowlist.js";
 import { loadLightGroups } from "./lightGroups.js";
 import { isHaConfigured, useDemoMode } from "./ha.js";
+import { initMqtt } from "./mqtt.js";
 
 const PORT = Number(process.env.PORT) || 3001;
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS ?? process.env.ALLOWED_ORIGIN ?? "http://localhost:5173")
@@ -37,6 +38,7 @@ function getAppVersion(): string {
 }
 const APP_VERSION = getAppVersion();
 loadLightGroups(join(rootDir, "config", "lightGroups.json"));
+initMqtt(join(rootDir, "config", "mqttLights.json"));
 
 /** Only allow origins from RFC 1918 private IP ranges (10.x, 172.16-31.x, 192.168.x) or localhost. */
 function isPrivateNetworkOrigin(origin: string, port: number): boolean {

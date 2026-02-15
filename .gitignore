@@ -17,6 +17,7 @@ config/allowlist.json
 config/lightGroups.json
 config/entityNames.json
 config/scenes.json
+config/mqttLights.json
 
 # Runtime data (user settings, scenes)
 data/
