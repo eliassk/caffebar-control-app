@@ -182,10 +182,19 @@ export function initMqtt(configPath: string): void {
 
   // Build lookup tables
   for (const light of config.lights) {
+    if (light.type === "rgbw") {
+      const ch = (light as MqttLightRgbw).channels;
+      if (!ch?.r || !ch?.g || !ch?.b || !ch?.w) {
+        console.warn("MQTT: Skipping rgbw light with invalid channels:", light.id);
+        continue;
+      }
+    }
     lightById.set(light.id, light);
     if (light.type === "rgbw") {
-      for (const ch of ["r", "g", "b", "w"] as const) {
-        const k = groupKey(light.channels[ch].router_id, light.channels[ch].group_id);
+      const ch = (light as MqttLightRgbw).channels;
+      for (const key of ["r", "g", "b", "w"] as const) {
+        const c = ch[key];
+        const k = groupKey(c.router_id, c.group_id);
         if (!groupToLights.has(k)) groupToLights.set(k, new Set());
         groupToLights.get(k)!.add(light.id);
       }
@@ -310,11 +319,38 @@ function lightToEntity(light: MqttLightConfig): MappedEntity {
     };
   }
 
+  if (light.type !== "rgbw") {
+    const fallback = light as { id: string; name: string; type: string };
+    console.warn("MQTT: Unknown light type:", fallback.type, "for", fallback.id);
+    return {
+      entity_id,
+      state: "off",
+      attributes: { friendly_name: fallback.name, supported_color_modes: ["onoff"] },
+      friendly_name: fallback.name,
+      icon: "mdi:lightbulb",
+      domain: "light",
+    };
+  }
+
+  const rgbw = light as MqttLightRgbw;
+  const ch = rgbw.channels;
+  if (!ch?.r || !ch?.g || !ch?.b || !ch?.w) {
+    console.warn("MQTT: rgbw light has invalid channels:", light.id);
+    return {
+      entity_id,
+      state: "off",
+      attributes: { friendly_name: light.name, supported_color_modes: ["rgbw"] },
+      friendly_name: light.name,
+      icon: "mdi:led-strip-variant",
+      domain: "light",
+    };
+  }
+
   // rgbw — read raw levels and reverse the color pipeline for the UI
-  const rawR = getLevel(light.channels.r.router_id, light.channels.r.group_id);
-  const rawG = getLevel(light.channels.g.router_id, light.channels.g.group_id);
-  const rawB = getLevel(light.channels.b.router_id, light.channels.b.group_id);
-  const rawW = getLevel(light.channels.w.router_id, light.channels.w.group_id);
+  const rawR = getLevel(ch.r.router_id, ch.r.group_id);
+  const rawG = getLevel(ch.g.router_id, ch.g.group_id);
+  const rawB = getLevel(ch.b.router_id, ch.b.group_id);
+  const rawW = getLevel(ch.w.router_id, ch.w.group_id);
   const anyOn = rawR > 0 || rawG > 0 || rawB > 0 || rawW > 0;
 
   // Reverse calibration: raw level on strip → uncalibrated linear level
