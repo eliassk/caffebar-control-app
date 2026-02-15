@@ -473,8 +473,8 @@
     {/if}
 
     <!-- Main content -->
-    <main class="min-h-0 flex-1 overflow-auto p-5">
-      <div class="flex flex-col gap-5">
+    <main class="min-h-0 min-w-0 flex-1 overflow-auto overflow-x-hidden p-5">
+      <div class="flex min-w-0 flex-col gap-5">
 
         <!-- ─── Overview ──────────────────────────────────────────── -->
         {#if showOverviewWelcome}

@@ -54,15 +54,15 @@
   }
 </script>
 
-<div class="mx-auto max-w-4xl">
+<div class="w-full min-w-0 max-w-full sm:mx-auto sm:max-w-4xl">
   {#if $pinStore.pinHash && !settingsUnlocked}
     <PinLockScreen mode="unlock" onUnlock={() => (settingsUnlocked = true)} />
   {/if}
   <h1 class="font-display text-2xl font-bold text-stone-800 dark:text-stone-100">
     {t.settingsTitle}
   </h1>
-  <div class="mt-6 rounded-2xl border border-white/20 dark:border-stone-600/50 bg-white/60 dark:bg-stone-800/60 backdrop-blur-xl p-6 shadow-glass">
-    <div class="space-y-4">
+  <div class="mt-6 min-w-0 overflow-hidden rounded-2xl border border-white/20 dark:border-stone-600/50 bg-white/60 dark:bg-stone-800/60 backdrop-blur-xl p-4 sm:p-6 shadow-glass">
+    <div class="space-y-4 min-w-0">
       <!-- Theme -->
       <div role="group" aria-label={t.settingsTheme}>
         <span class="block text-sm font-medium text-stone-600 dark:text-stone-400">{t.settingsTheme}</span>
@@ -137,8 +137,8 @@
         {#if scenes.length > 0}
           <ul class="mt-3 space-y-2">
             {#each scenes as scene (scene.id)}
-              <li class="flex items-center justify-between gap-3 rounded-lg border border-stone-200 dark:border-stone-600 dark:bg-stone-800/50 bg-stone-50/50 px-3 py-2">
-                <span class="flex items-center gap-2 flex-1">
+              <li class="flex min-w-0 items-center justify-between gap-3 rounded-lg border border-stone-200 dark:border-stone-600 dark:bg-stone-800/50 bg-stone-50/50 px-3 py-2">
+                <span class="flex min-w-0 flex-1 items-center gap-2">
                   {#if scene.icon || safeColor(scene.color)}
                     <span
                       class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg {safeColor(scene.color) ? 'text-white' : 'bg-stone-200 dark:bg-stone-600 text-stone-600 dark:text-stone-300'}"
@@ -147,9 +147,9 @@
                       <svelte:component this={getSceneIcon(scene.icon)} class="h-4 w-4" />
                     </span>
                   {/if}
-                  <span class="text-sm font-medium text-stone-700 dark:text-stone-300">{scene.name}</span>
+                  <span class="min-w-0 truncate text-sm font-medium text-stone-700 dark:text-stone-300" title={scene.name}>{scene.name}</span>
                 </span>
-                <div class="flex gap-1">
+                <div class="flex shrink-0 gap-1">
                   <button
                     type="button"
                     class="rounded-lg px-2 py-1 text-xs font-medium text-stone-600 dark:text-stone-400 transition hover:bg-stone-200 dark:hover:bg-stone-700"
@@ -199,13 +199,13 @@
       <div id="settings-checklist" class="border-t border-stone-200 dark:border-stone-600 pt-6">
         <label for="checklist-add" class="block text-sm font-medium text-stone-600 dark:text-stone-400">{t.checklistTitle}</label>
         <p class="mt-0.5 text-xs text-stone-500">{t.checklistHelp}</p>
-        <div class="mt-2 flex gap-2">
+        <div class="mt-2 flex min-w-0 gap-2">
           <input
             id="checklist-add"
             type="text"
             bind:value={checklistNewItem}
             placeholder={t.checklistAddPlaceholder}
-            class="flex-1 rounded-xl border border-white/30 dark:border-stone-600/50 bg-white/50 dark:bg-stone-700/50 px-4 py-2.5 text-stone-800 dark:text-stone-200 placeholder-stone-400 dark:placeholder-stone-500 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+            class="min-w-0 flex-1 rounded-xl border border-white/30 dark:border-stone-600/50 bg-white/50 dark:bg-stone-700/50 px-4 py-2.5 text-stone-800 dark:text-stone-200 placeholder-stone-400 dark:placeholder-stone-500 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
             on:keydown={(e) => e.key === "Enter" && addChecklistItem()}
           />
           <button
