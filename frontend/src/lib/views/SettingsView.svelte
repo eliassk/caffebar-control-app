@@ -21,7 +21,6 @@
   let pinSetupMode: "set" | "change" | "remove" = "set";
 
   let settingsTitleInput = "";
-  let settingsDescInput = "";
   let settingsSavedFlash = false;
   let checklistNewItem = "";
   let prevSettingsOpen = false;
@@ -29,14 +28,13 @@
   // Re-populate inputs each time settings becomes visible
   $: if (!prevSettingsOpen) {
     settingsTitleInput = ($customWelcome?.title || "").trim() || t.welcomeTitle;
-    settingsDescInput = ($customWelcome?.desc || "").trim() || t.welcomeDesc;
   }
   $: prevSettingsOpen = true;
 
   function saveCustomWelcome() {
     customWelcome.set({
       title: settingsTitleInput.trim() || t.welcomeTitle,
-      desc: settingsDescInput.trim() || t.welcomeDesc,
+      desc: "",
     });
     settingsSavedFlash = true;
     setTimeout(() => (settingsSavedFlash = false), 2000);
@@ -45,7 +43,6 @@
   function resetCustomWelcome() {
     customWelcome.set(null);
     settingsTitleInput = t.welcomeTitle;
-    settingsDescInput = t.welcomeDesc;
   }
 
   function addChecklistItem() {
@@ -184,7 +181,7 @@
         </button>
       </div>
 
-      <!-- Welcome title/description -->
+      <!-- Welcome title -->
       <div class="border-t border-stone-200 dark:border-stone-600 pt-6">
         <label for="welcome-title" class="block text-sm font-medium text-stone-600 dark:text-stone-400">
           {t.settingsWelcomeTitle}
@@ -196,18 +193,6 @@
           class="mt-1.5 w-full rounded-xl border border-white/30 dark:border-stone-600/50 bg-white/50 dark:bg-stone-700/50 px-4 py-2.5 text-stone-800 dark:text-stone-200 placeholder-stone-400 dark:placeholder-stone-500 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
           placeholder={t.welcomeTitle}
         />
-      </div>
-      <div>
-        <label for="welcome-desc" class="block text-sm font-medium text-stone-600">
-          {t.settingsWelcomeDesc}
-        </label>
-        <textarea
-          id="welcome-desc"
-          bind:value={settingsDescInput}
-          rows="3"
-          class="mt-1.5 w-full resize-none rounded-xl border border-white/30 dark:border-stone-600/50 bg-white/50 dark:bg-stone-700/50 px-4 py-2.5 text-stone-800 dark:text-stone-200 placeholder-stone-400 dark:placeholder-stone-500 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
-          placeholder={t.welcomeDesc}
-        ></textarea>
       </div>
 
       <!-- Checklist management -->

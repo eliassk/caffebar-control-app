@@ -193,20 +193,20 @@ input[type="range"].glass-slider::-moz-range-thumb {
   margin-top: -0.25rem;
 }
 
-/* Bigger glass slider for touch (dimmer / phone) — 2/3 width, right-aligned in card */
+/* Bigger glass slider for touch (dimmer / phone) — 1/2 width on desktop, taller track */
 input[type="range"].glass-slider-touch::-webkit-slider-runnable-track {
-  height: 1rem;
+  height: 1.25rem;
 }
 input[type="range"].glass-slider-touch::-webkit-slider-thumb {
-  width: 6px;
-  height: 1.5rem;
+  width: 8px;
+  height: 1.75rem;
   margin-top: -0.25rem;
 }
 input[type="range"].glass-slider-touch::-moz-range-track {
-  height: 1rem;
+  height: 1.25rem;
 }
 input[type="range"].glass-slider-touch::-moz-range-thumb {
-  width: 6px;
-  height: 1.5rem;
+  width: 8px;
+  height: 1.75rem;
   margin-top: -0.25rem;
 }

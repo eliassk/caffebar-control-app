@@ -398,7 +398,7 @@
     class="fixed inset-y-0 left-0 z-40 flex w-52 shrink-0 flex-col border-r border-white/20 dark:border-stone-600/50 bg-white/70 dark:bg-stone-900/70 backdrop-blur-xl py-5 pl-4 pr-3 shadow-glass transition-transform duration-200 ease-out lg:relative lg:translate-x-0 lg:shadow-none {sidebarOpen ? 'translate-x-0' : '-translate-x-full'}"
   >
     <div class="flex items-center gap-2">
-      <div class="flex h-9 w-9 items-center justify-center rounded-full border border-white/30 dark:border-stone-500/50 bg-white/50 dark:bg-stone-700/50 backdrop-blur-md shadow-sm">
+      <div class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl border border-white/40 dark:border-stone-500/50 bg-white/60 dark:bg-stone-700/60 shadow-glass backdrop-blur-xl ring-2 ring-white/20 dark:ring-stone-500/20">
         <Coffee class="h-5 w-5 text-accent" />
       </div>
       <span class="font-display text-lg font-semibold text-stone-800 dark:text-stone-200">{t.appName}</span>

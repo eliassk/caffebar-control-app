@@ -83,7 +83,7 @@
         </p>
       </div>
     </div>
-    <div class="flex w-full min-w-0 items-center sm:flex-[2] sm:justify-end">
+    <div class="flex w-full min-w-0 items-center sm:w-1/2 sm:min-w-0 sm:justify-end">
       <input
         type="range"
         min="0"

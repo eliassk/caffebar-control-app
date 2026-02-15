@@ -40,7 +40,7 @@ export const t = {
   demo: "Demo",
 
   // Overview
-  welcomeTitle: "Witaj w Kaffebar",
+  welcomeTitle: "Hello!",
   welcomeDesc:
     "Steruj oświetleniem, klimatem i urządzeniami z menu bocznego. Użyj scen poniżej, aby szybko otworzyć lub zamknąć bar.",
   welcomeSituationIntro: "Obecnie w barze: ",
