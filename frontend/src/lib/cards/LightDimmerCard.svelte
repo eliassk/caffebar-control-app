@@ -64,7 +64,7 @@
     ? '!bg-amber-50/90 dark:!bg-amber-900/50'
     : ''}"
 >
-  <div class="flex min-h-[3.25rem] items-center gap-4">
+  <div class="flex min-h-[3.25rem] flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
     <div class="flex min-w-0 flex-1 items-center gap-4">
       <span
         class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition {isOn
@@ -83,7 +83,7 @@
         </p>
       </div>
     </div>
-    <div class="flex min-w-0 flex-[2] items-center justify-end">
+    <div class="flex w-full min-w-0 items-center sm:flex-[2] sm:justify-end">
       <input
         type="range"
         min="0"

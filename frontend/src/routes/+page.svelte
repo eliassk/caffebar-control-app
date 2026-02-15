@@ -398,8 +398,8 @@
     class="fixed inset-y-0 left-0 z-40 flex w-52 shrink-0 flex-col border-r border-white/20 dark:border-stone-600/50 bg-white/70 dark:bg-stone-900/70 backdrop-blur-xl py-5 pl-4 pr-3 shadow-glass transition-transform duration-200 ease-out lg:relative lg:translate-x-0 lg:shadow-none {sidebarOpen ? 'translate-x-0' : '-translate-x-full'}"
   >
     <div class="flex items-center gap-2">
-      <div class="flex h-9 w-9 items-center justify-center rounded-full bg-accent">
-        <Coffee class="h-5 w-5 text-white" />
+      <div class="flex h-9 w-9 items-center justify-center rounded-full border border-white/30 dark:border-stone-500/50 bg-white/50 dark:bg-stone-700/50 backdrop-blur-md shadow-sm">
+        <Coffee class="h-5 w-5 text-accent" />
       </div>
       <span class="font-display text-lg font-semibold text-stone-800 dark:text-stone-200">{t.appName}</span>
     </div>
@@ -413,8 +413,8 @@
         <button
           type="button"
           class="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition {view === item.key
-            ? 'bg-accent/10 text-accent dark:bg-accent/20'
-            : 'text-stone-600 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800 hover:text-stone-800 dark:hover:text-stone-200'}"
+            ? 'border border-white/25 dark:border-stone-600/50 bg-white/50 dark:bg-stone-700/50 backdrop-blur-md text-accent shadow-sm'
+            : 'border border-transparent text-stone-600 dark:text-stone-400 hover:bg-white/40 dark:hover:bg-stone-800/60 hover:text-stone-800 dark:hover:text-stone-200'}"
           on:click={() => { view = item.key; sidebarOpen = false; }}
         >
           <svelte:component this={item.icon} class="h-5 w-5 shrink-0" />
