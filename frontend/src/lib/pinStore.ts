@@ -3,12 +3,38 @@ import { fetchPinHash, savePinHash as apiSavePinHash, removePinHash as apiRemove
 
 const PIN_LENGTH = 4;
 
-async function hashPin(pin: string): Promise<string> {
+function hasSubtleCrypto(): boolean {
+  return typeof crypto !== "undefined" && !!crypto.subtle;
+}
+
+/** Fallback when crypto.subtle is unavailable (e.g. HTTP on private network). Not cryptographically secure. */
+function hashPinFallback(pin: string): string {
   const encoder = new TextEncoder();
   const data = encoder.encode(pin);
-  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+  const parts: number[] = [];
+  let h = 2166136261;
+  const mul = 16777619;
+  for (let i = 0; i < data.length; i++) {
+    h ^= data[i];
+    h = (h * mul) >>> 0;
+  }
+  parts.push(h >>> 0);
+  for (let r = 1; r < 8; r++) {
+    h = ((h * mul) >>> 0) + r;
+    parts.push(h >>> 0);
+  }
+  return parts.map((p) => p.toString(16).padStart(8, "0")).join("");
+}
+
+async function hashPin(pin: string): Promise<string> {
+  if (hasSubtleCrypto()) {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(pin);
+    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+  }
+  return hashPinFallback(pin);
 }
 
 interface PinState {
