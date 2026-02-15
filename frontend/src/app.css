@@ -2,6 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --glass-opacity: 0.12;
+  --glass-blur: 24px;
+}
+
 html,
 body {
   height: 100%;
@@ -11,11 +16,11 @@ body {
   -webkit-touch-callout: none;
   user-select: none;
   overflow: hidden;
-  background: #f2ede6;
+  background: linear-gradient(135deg, #f2ede6 0%, #e8e4dc 50%, #f5f1eb 100%);
 }
 
 .dark body {
-  background: #1c1917;
+  background: linear-gradient(160deg, #1c1917 0%, #292524 40%, #1c1917 100%);
 }
 
 /* Temperature graph – dark mode colors */
@@ -87,4 +92,121 @@ input[type="range"].white-slider::-moz-range-track {
 }
 input[type="range"].white-slider::-moz-range-thumb {
   margin-top: -0.125rem;
+}
+
+/* Mushroom-style slider — two-tone track (orange fill to value, grey remainder) */
+input[type="range"].mushroom-slider {
+  --slider-pct: 0%;
+}
+input[type="range"].mushroom-slider::-webkit-slider-runnable-track {
+  height: 0.5rem;
+  border-radius: 9999px;
+  background: linear-gradient(
+    to right,
+    #ea580c 0%,
+    #ea580c var(--slider-pct, 0%),
+    #475569 var(--slider-pct, 0%),
+    #475569 100%
+  );
+}
+input[type="range"].mushroom-slider::-moz-range-track {
+  height: 0.5rem;
+  border-radius: 9999px;
+  background: linear-gradient(
+    to right,
+    #ea580c 0%,
+    #ea580c var(--slider-pct, 0%),
+    #475569 var(--slider-pct, 0%),
+    #475569 100%
+  );
+}
+input[type="range"].mushroom-slider::-webkit-slider-thumb {
+  background: #fff;
+}
+input[type="range"].mushroom-slider::-moz-range-thumb {
+  background: #fff;
+}
+
+/* Liquid glass slider — white/light track, accent fill to value, thin white vertical-line handle */
+input[type="range"].glass-slider {
+  --slider-pct: 0%;
+}
+input[type="range"].glass-slider::-webkit-slider-runnable-track {
+  height: 0.5rem;
+  border-radius: 9999px;
+  background: linear-gradient(
+    to right,
+    #e85d2e 0%,
+    #e85d2e var(--slider-pct, 0%),
+    rgba(255,255,255,0.4) var(--slider-pct, 0%),
+    rgba(255,255,255,0.4) 100%
+  );
+}
+.dark input[type="range"].glass-slider::-webkit-slider-runnable-track {
+  background: linear-gradient(
+    to right,
+    #e85d2e 0%,
+    #e85d2e var(--slider-pct, 0%),
+    rgba(255,255,255,0.15) var(--slider-pct, 0%),
+    rgba(255,255,255,0.15) 100%
+  );
+}
+input[type="range"].glass-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 3px;
+  height: 1rem;
+  border-radius: 2px;
+  background: #fff;
+  cursor: pointer;
+  border: 0;
+  box-shadow: 0 0 4px rgba(0,0,0,0.2);
+  margin-top: -0.25rem;
+}
+input[type="range"].glass-slider::-moz-range-track {
+  height: 0.5rem;
+  border-radius: 9999px;
+  background: linear-gradient(
+    to right,
+    #e85d2e 0%,
+    #e85d2e var(--slider-pct, 0%),
+    rgba(255,255,255,0.4) var(--slider-pct, 0%),
+    rgba(255,255,255,0.4) 100%
+  );
+}
+.dark input[type="range"].glass-slider::-moz-range-track {
+  background: linear-gradient(
+    to right,
+    #e85d2e 0%,
+    #e85d2e var(--slider-pct, 0%),
+    rgba(255,255,255,0.15) var(--slider-pct, 0%),
+    rgba(255,255,255,0.15) 100%
+  );
+}
+input[type="range"].glass-slider::-moz-range-thumb {
+  width: 3px;
+  height: 1rem;
+  border-radius: 2px;
+  background: #fff;
+  cursor: pointer;
+  border: 0;
+  box-shadow: 0 0 4px rgba(0,0,0,0.2);
+  margin-top: -0.25rem;
+}
+
+/* Bigger glass slider for touch (dimmer / phone) — 2/3 width, right-aligned in card */
+input[type="range"].glass-slider-touch::-webkit-slider-runnable-track {
+  height: 1rem;
+}
+input[type="range"].glass-slider-touch::-webkit-slider-thumb {
+  width: 6px;
+  height: 1.5rem;
+  margin-top: -0.25rem;
+}
+input[type="range"].glass-slider-touch::-moz-range-track {
+  height: 1rem;
+}
+input[type="range"].glass-slider-touch::-moz-range-thumb {
+  width: 6px;
+  height: 1.5rem;
+  margin-top: -0.25rem;
 }

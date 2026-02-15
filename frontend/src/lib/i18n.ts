@@ -36,12 +36,18 @@ export const t = {
   statusOnline: "Połączono",
   statusOffline: "Rozłączono",
   goodbye: "Goodbye",
+  blackout: "Blackout",
   demo: "Demo",
 
   // Overview
   welcomeTitle: "Witaj w Kaffebar",
   welcomeDesc:
     "Steruj oświetleniem, klimatem i urządzeniami z menu bocznego. Użyj scen poniżej, aby szybko otworzyć lub zamknąć bar.",
+  welcomeSituationIntro: "Obecnie w barze: ",
+  welcomeSituationHvac: "klimatyzacja ",
+  welcomeSituationFloor: "ogrzewanie podłogowe ",
+  welcomeSituationEnd: ".",
+  welcomeSituationNoData: "Brak danych z czujników. Steruj oświetleniem i klimatem z menu bocznego.",
   lightsOn: (n: number) => (n === 1 ? "1 lampa włączona" : n < 5 ? `${n} lampy włączone` : `${n} lamp włączonych`),
   lightsOnShort: (n: number) => `${n} wł.`,
 
@@ -87,10 +93,13 @@ export const t = {
   pinRemove: "Usuń PIN",
   pinRemoveConfirm: "Czy na pewno usunąć PIN?",
   pinLockSection: "Blokada PIN",
+  pinSaveError: "Nie udało się zapisać PIN. Sprawdź połączenie z serwerem.",
+  pinRemoveError: "Nie udało się usunąć PIN. Sprawdź połączenie z serwerem.",
+  pinSaving: "Zapisywanie…",
 
   // Goodbye modal
   turnAllOffTitle: "Wyłączyć wszystko?",
-  turnAllOffDesc: "Spowoduje to wyłączenie wszystkich lamp i przełączników w Kaffebar.",
+  turnAllOffDesc: "Spowoduje to wyłączenie wszystkich lamp i przełączników.",
   cancel: "Anuluj",
   turnAllOff: "Wyłącz wszystko",
 

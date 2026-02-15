@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { ChevronDown, ChevronUp } from "lucide-svelte";
+  import { Lightbulb, Settings } from "lucide-svelte";
   import { t } from "$lib/i18n";
   import type { CoffeeEntity } from "$lib/api";
   import { callService } from "$lib/api";
@@ -29,11 +29,6 @@
   $: if (!wheelDragging && !busy && localRgb !== null) {
     localRgb = null;
   }
-
-  // Card background tint from the current light color (subtle wash)
-  $: cardBg = isOn
-    ? `rgba(${displayRgb[0]}, ${displayRgb[1]}, ${displayRgb[2]}, 0.15)`
-    : "";
 
   // ── White slider local state ───────────────────────────────────────
 
@@ -343,21 +338,26 @@
 <!-- ═══════════════════════════════════════════════════════════════ -->
 
 <div
-  class="overflow-hidden rounded-2xl border border-stone-200/80 dark:border-stone-600 p-4 shadow-soft transition hover:shadow-soft-lg {isOn
-    ? 'dark:bg-stone-800/80 bg-white/80'
-    : 'bg-stone-50/90 dark:bg-stone-800'}"
-  style={isOn && cardBg ? `background-color: ${cardBg}` : ""}
+  class="overflow-hidden rounded-2xl border border-white/20 dark:border-stone-600/50 bg-white/80 dark:bg-stone-800/80 backdrop-blur-xl py-4 px-4 shadow-glass transition hover:shadow-soft-lg {isOn
+    ? '!bg-amber-50/90 dark:!bg-amber-900/50'
+    : ''}"
 >
-  <!-- Header: name + on/off toggle + expand chevron -->
-  <div
-    class="flex cursor-pointer items-start justify-between gap-3"
-    role="button"
-    tabindex="0"
+  <!-- Header: name left, toggle + gear right (taller row) -->
+  <div class="flex min-h-[3.25rem] cursor-pointer items-center gap-4" role="button" tabindex="0"
     on:click={() => (expanded = !expanded)}
     on:keydown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); expanded = !expanded; } }}
   >
-    <div class="min-w-0 flex-1">
-      <p class="font-display text-2xl font-bold tabular-nums text-stone-800 dark:text-stone-200">
+    <span
+      class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition {isOn
+        ? 'text-white/95'
+        : 'bg-stone-400/25 text-stone-500 dark:text-stone-400'}"
+      style={isOn ? `background: rgba(${displayRgb[0]},${displayRgb[1]},${displayRgb[2]},0.7)` : ""}
+      aria-hidden="true"
+    >
+      <Lightbulb class="h-5 w-5" />
+    </span>
+    <div class="min-w-0 flex-1 shrink-0" style="max-width: 12rem;">
+      <p class="font-display text-xl font-bold text-stone-900 dark:text-white">
         {entity.friendly_name}
       </p>
       <p class="mt-0.5 text-sm font-medium text-stone-500 dark:text-stone-400">
@@ -368,18 +368,18 @@
         {/if}
       </p>
     </div>
-    <div class="flex shrink-0 items-center gap-2">
+    <div class="ml-auto flex shrink-0 items-center gap-2">
       <button
         type="button"
-        class="disabled:opacity-50"
+        class="shrink-0 disabled:opacity-50"
         disabled={busy || unavailable}
         on:click|stopPropagation={toggle}
         aria-label={isOn ? t.ariaTurnOff : t.ariaTurnOn}
       >
         <span
           class="inline-flex h-7 w-12 rounded-full transition {isOn
-            ? 'bg-emerald-500'
-            : 'bg-stone-200 dark:bg-stone-600'}"
+            ? 'bg-amber-400/55'
+            : 'bg-stone-400/30'}"
         >
           <span
             class="block h-5 w-5 translate-y-1 rounded-full bg-white shadow-sm transition {isOn
@@ -388,11 +388,14 @@
           ></span>
         </span>
       </button>
-      {#if expanded}
-        <ChevronUp class="h-5 w-5 text-stone-500 dark:text-stone-400" />
-      {:else}
-        <ChevronDown class="h-5 w-5 text-stone-500 dark:text-stone-400" />
-      {/if}
+      <button
+        type="button"
+        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-stone-400 transition hover:bg-stone-600/50 hover:text-white focus:outline-none focus:ring-2 focus:ring-stone-500"
+        on:click|stopPropagation={() => (expanded = !expanded)}
+        aria-label={expanded ? "Collapse" : "Expand color controls"}
+      >
+        <Settings class="h-5 w-5" />
+      </button>
     </div>
   </div>
 
@@ -425,7 +428,7 @@
     {#each PRESETS as preset}
       <button
         type="button"
-        class="h-8 w-8 rounded-full border-2 border-stone-200/80 dark:border-stone-500/60 shadow-sm transition-transform hover:scale-110 active:scale-95 disabled:opacity-40 disabled:pointer-events-none"
+        class="h-8 w-8 rounded-full border-2 border-stone-600/60 shadow-sm transition-transform hover:scale-110 active:scale-95 disabled:opacity-40 disabled:pointer-events-none"
         style="background: rgb({preset.rgb.join(',')})"
         disabled={busy || unavailable}
         on:click={() => applyPreset(preset.rgb)}
@@ -436,23 +439,26 @@
   </div>
 
   <!-- White channel slider -->
-  <div class="mt-4">
-    <div class="mb-1 flex items-center justify-between">
-      <p class="text-xs font-medium text-stone-500 dark:text-stone-400">{t.whiteChannel}</p>
-      <p class="text-xs tabular-nums text-stone-500 dark:text-stone-400">{whiteSliderValue}%</p>
+  <div class="mt-4 flex flex-col items-end">
+    <div class="mb-1 flex w-2/3 items-center justify-between">
+      <p class="text-xs font-medium text-stone-400">{t.whiteChannel}</p>
+      <p class="text-xs tabular-nums text-stone-400">{whiteSliderValue}%</p>
     </div>
-    <input
-      type="range"
-      min="0"
-      max="100"
-      bind:value={whiteSliderValue}
-      on:input={scheduleWhiteUpdate}
-      on:change={finishWhiteInteraction}
-      on:mouseup={finishWhiteInteraction}
-      on:touchend={finishWhiteInteraction}
-      disabled={busy || unavailable}
-      class="white-slider h-3 w-full appearance-none rounded-full disabled:opacity-50"
-    />
+    <div class="w-2/3">
+      <input
+        type="range"
+        min="0"
+        max="100"
+        bind:value={whiteSliderValue}
+        on:input={scheduleWhiteUpdate}
+        on:change={finishWhiteInteraction}
+        on:mouseup={finishWhiteInteraction}
+        on:touchend={finishWhiteInteraction}
+        disabled={busy || unavailable}
+        class="glass-slider glass-slider-touch w-full appearance-none rounded-full disabled:opacity-50"
+        style="--slider-pct: {whiteSliderValue}%"
+      />
+    </div>
   </div>
   {/if}
 </div>

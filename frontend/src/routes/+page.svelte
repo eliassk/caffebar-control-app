@@ -61,6 +61,7 @@
   let sidebarOpen = false;
   let settingsUnlocked = false;
   let appVersion = "";
+  let openSettingsScrollToChecklist = false;
 
   // Scene modal state
   let showSaveSceneModal = false;
@@ -155,6 +156,10 @@
   $: showOverviewWelcome = view === "overview";
   $: showSettings = view === "settings";
   $: if (view !== "settings") settingsUnlocked = false;
+  $: if (showSettings && openSettingsScrollToChecklist) {
+    openSettingsScrollToChecklist = false;
+    setTimeout(() => document.getElementById("settings-checklist")?.scrollIntoView({ behavior: "smooth", block: "start" }), 150);
+  }
   $: lightGroups = groupLights(lights, lightGroupsConfig);
 
   // ─── Helpers ──────────────────────────────────────────────────────
@@ -379,7 +384,7 @@
 <!-- ═══════════════════════════════════════════════════════════════════
      LAYOUT
      ═══════════════════════════════════════════════════════════════════ -->
-<div class="flex h-dvh bg-surface-alt dark:bg-stone-900">
+<div class="flex h-dvh bg-transparent">
   <!-- Backdrop when sidebar open on small screens -->
   <button
     type="button"
@@ -390,7 +395,7 @@
 
   <!-- Sidebar -->
   <aside
-    class="fixed inset-y-0 left-0 z-40 flex w-52 shrink-0 flex-col border-r border-stone-200/80 dark:border-stone-600 dark:bg-stone-900 bg-surface-alt py-5 pl-4 pr-3 shadow-soft-lg transition-transform duration-200 ease-out lg:relative lg:translate-x-0 lg:shadow-none {sidebarOpen ? 'translate-x-0' : '-translate-x-full'}"
+    class="fixed inset-y-0 left-0 z-40 flex w-52 shrink-0 flex-col border-r border-white/20 dark:border-stone-600/50 bg-white/70 dark:bg-stone-900/70 backdrop-blur-xl py-5 pl-4 pr-3 shadow-glass transition-transform duration-200 ease-out lg:relative lg:translate-x-0 lg:shadow-none {sidebarOpen ? 'translate-x-0' : '-translate-x-full'}"
   >
     <div class="flex items-center gap-2">
       <div class="flex h-9 w-9 items-center justify-center rounded-full bg-accent">
@@ -434,7 +439,7 @@
   <!-- Main content area -->
   <div class="flex min-w-0 flex-1 flex-col">
     <!-- Top bar -->
-    <header class="flex shrink-0 items-center justify-between gap-4 border-b border-stone-200/80 dark:border-stone-600 dark:bg-stone-900 bg-surface px-4 py-3 sm:px-5">
+    <header class="flex shrink-0 items-center justify-between gap-4 border-b border-white/20 dark:border-stone-600/50 bg-white/60 dark:bg-stone-900/60 backdrop-blur-xl px-4 py-3 sm:px-5">
       <button
         type="button"
         class="flex h-10 w-10 items-center justify-center rounded-xl text-stone-600 dark:text-stone-400 transition hover:bg-stone-100 dark:hover:bg-stone-800 lg:hidden"
@@ -458,13 +463,6 @@
           <span class="h-2 w-2 rounded-full {online ? 'bg-emerald-500' : 'bg-amber-500'}"></span>
           {online ? t.statusOnline : t.statusOffline}
         </div>
-        <button
-          type="button"
-          class="rounded-xl bg-accent px-4 py-2 text-sm font-medium text-white shadow-soft transition hover:bg-accent-hover active:scale-[0.98]"
-          on:click={() => (showAllOffConfirm = true)}
-        >
-          {t.goodbye}
-        </button>
       </div>
     </header>
 
@@ -480,7 +478,18 @@
 
         <!-- ─── Overview ──────────────────────────────────────────── -->
         {#if showOverviewWelcome}
-          <OverviewView {entities} {scenes} {sceneBusy} onRunScene={runScene} />
+          <OverviewView
+            {entities}
+            {scenes}
+            {sceneBusy}
+            onRunScene={runScene}
+            onBlackout={() => (showAllOffConfirm = true)}
+            onOpenChecklistSettings={() => {
+              view = "settings";
+              sidebarOpen = false;
+              openSettingsScrollToChecklist = true;
+            }}
+          />
 
         <!-- ─── Settings ──────────────────────────────────────────── -->
         {:else if showSettings}
@@ -571,22 +580,24 @@
                   <h2 class="mb-2 text-sm font-semibold uppercase tracking-wider text-stone-500 dark:text-stone-400">
                     {groupId === "other" ? t.lightGroupOther : label}
                   </h2>
-                  <div class="grid items-start gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  <div class="grid items-start gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
                     {#each groupLights as entity (entity.entity_id)}
-                      {#if isRGBWLight(entity)}
-                        <LightRGBWCard
-                          {entity}
-                          onUpdate={load}
-                          busy={toggling.has(entity.entity_id)}
-                          onServiceCallStart={(id) => { toggling = new Set(toggling); toggling.add(id); toggling = toggling; }}
-                          onServiceCallEnd={(id) => { toggling = new Set(toggling); toggling.delete(id); toggling = toggling; }}
-                          onError={(msg) => (lastError = sanitizeError(msg))}
-                        />
-                      {:else if isDimmerLight(entity)}
-                        <LightDimmerCard {entity} onUpdate={load} busy={toggling.has(entity.entity_id)} />
-                      {:else}
-                        <LightToggleCard {entity} onToggle={() => toggle(entity)} busy={toggling.has(entity.entity_id)} />
-                      {/if}
+                      <div class="col-span-2">
+                        {#if isRGBWLight(entity)}
+                          <LightRGBWCard
+                            {entity}
+                            onUpdate={load}
+                            busy={toggling.has(entity.entity_id)}
+                            onServiceCallStart={(id) => { toggling = new Set(toggling); toggling.add(id); toggling = toggling; }}
+                            onServiceCallEnd={(id) => { toggling = new Set(toggling); toggling.delete(id); toggling = toggling; }}
+                            onError={(msg) => (lastError = sanitizeError(msg))}
+                          />
+                        {:else if isDimmerLight(entity)}
+                          <LightDimmerCard {entity} onUpdate={load} busy={toggling.has(entity.entity_id)} />
+                        {:else}
+                          <LightToggleCard {entity} onToggle={() => toggle(entity)} busy={toggling.has(entity.entity_id)} />
+                        {/if}
+                      </div>
                     {/each}
                   </div>
                 </div>
@@ -628,7 +639,7 @@
   <h2 id="alloff-title" class="font-display text-lg font-semibold text-stone-800 dark:text-stone-100">{t.turnAllOffTitle}</h2>
   <p class="mt-2 text-sm text-stone-600 dark:text-stone-400">{t.turnAllOffDesc}</p>
   <div class="mt-6 flex gap-3">
-    <button type="button" class="flex-1 rounded-xl bg-stone-100 dark:bg-stone-700 py-3 font-medium text-stone-700 dark:text-stone-200 transition hover:bg-stone-200 dark:hover:bg-stone-600 active:scale-[0.98]" on:click={() => (showAllOffConfirm = false)}>
+    <button type="button" class="flex-1 rounded-xl border border-white/20 dark:border-stone-600/50 bg-white/50 dark:bg-stone-700/50 backdrop-blur-sm py-3 font-medium text-stone-700 dark:text-stone-200 transition hover:bg-white/70 dark:hover:bg-stone-600/60 active:scale-[0.98]" on:click={() => (showAllOffConfirm = false)}>
       {t.cancel}
     </button>
     <button type="button" class="flex-1 rounded-xl bg-accent py-3 font-medium text-white transition hover:bg-accent-hover active:scale-[0.98]" on:click={allOff}>
@@ -641,7 +652,7 @@
 <Modal open={showSaveSceneModal} titleId="save-scene-title" onClose={() => (showSaveSceneModal = false)}>
   <h2 id="save-scene-title" class="font-display text-lg font-semibold text-stone-800 dark:text-stone-100">{t.sceneSaveAs}</h2>
   <input type="text" bind:value={saveSceneNameInput} placeholder={t.sceneNamePlaceholder}
-    class="mt-4 w-full rounded-xl border border-stone-200 dark:border-stone-600 dark:bg-stone-700 bg-white px-4 py-2.5 text-stone-800 dark:text-stone-200 placeholder-stone-400 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+    class="mt-4 w-full rounded-xl border border-white/30 dark:border-stone-600/50 bg-white/50 dark:bg-stone-700/50 px-4 py-2.5 text-stone-800 dark:text-stone-200 placeholder-stone-400 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
     on:keydown={(e) => e.key === "Enter" && saveSceneFromModal()} />
   <div class="mt-4">
     <span class="block text-xs font-medium text-stone-500 dark:text-stone-400 mb-2">{t.sceneIcon}</span>
@@ -669,7 +680,7 @@
     </div>
   </div>
   <div class="mt-6 flex gap-3">
-    <button type="button" class="flex-1 rounded-xl bg-stone-100 dark:bg-stone-700 py-3 font-medium text-stone-700 dark:text-stone-200 transition hover:bg-stone-200 dark:hover:bg-stone-600 active:scale-[0.98]" on:click={() => (showSaveSceneModal = false)}>
+    <button type="button" class="flex-1 rounded-xl border border-white/20 dark:border-stone-600/50 bg-white/50 dark:bg-stone-700/50 backdrop-blur-sm py-3 font-medium text-stone-700 dark:text-stone-200 transition hover:bg-white/70 dark:hover:bg-stone-600/60 active:scale-[0.98]" on:click={() => (showSaveSceneModal = false)}>
       {t.cancel}
     </button>
     <button type="button" class="flex-1 rounded-xl bg-accent py-3 font-medium text-white transition hover:bg-accent-hover active:scale-[0.98] disabled:opacity-50" disabled={!saveSceneNameInput.trim()} on:click={saveSceneFromModal}>
@@ -683,7 +694,7 @@
   <Modal open={true} titleId="edit-scene-title" onClose={() => (showEditSceneModal = null)}>
     <h2 id="edit-scene-title" class="font-display text-lg font-semibold text-stone-800 dark:text-stone-100">{t.sceneEdit} — {showEditSceneModal.name}</h2>
     <input type="text" bind:value={editSceneNameInput} placeholder={t.sceneNamePlaceholder}
-      class="mt-4 w-full rounded-xl border border-stone-200 dark:border-stone-600 dark:bg-stone-700 bg-white px-4 py-2.5 text-stone-800 dark:text-stone-200 placeholder-stone-400 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20" />
+      class="mt-4 w-full rounded-xl border border-white/30 dark:border-stone-600/50 bg-white/50 dark:bg-stone-700/50 px-4 py-2.5 text-stone-800 dark:text-stone-200 placeholder-stone-400 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20" />
     <div class="mt-4">
       <span class="block text-xs font-medium text-stone-500 dark:text-stone-400 mb-2">{t.sceneIcon}</span>
       <div class="flex flex-wrap gap-2">
@@ -710,12 +721,12 @@
       </div>
     </div>
     <div class="mt-4 flex flex-col gap-2">
-      <button type="button" class="w-full rounded-xl border border-stone-200 dark:border-stone-600 py-2.5 text-sm font-medium text-stone-700 dark:text-stone-200 transition hover:bg-stone-50 dark:hover:bg-stone-700" on:click={replaceSceneWithCurrent}>
+      <button type="button" class="w-full rounded-xl border border-white/20 dark:border-stone-600/50 bg-white/40 dark:bg-stone-700/40 py-2.5 text-sm font-medium text-stone-700 dark:text-stone-200 transition hover:bg-white/60 dark:hover:bg-stone-600/50" on:click={replaceSceneWithCurrent}>
         {t.sceneReplaceWithCurrent}
       </button>
     </div>
     <div class="mt-6 flex gap-3">
-      <button type="button" class="flex-1 rounded-xl bg-stone-100 dark:bg-stone-700 py-3 font-medium text-stone-700 dark:text-stone-200 transition hover:bg-stone-200 dark:hover:bg-stone-600 active:scale-[0.98]" on:click={() => (showEditSceneModal = null)}>
+      <button type="button" class="flex-1 rounded-xl border border-white/20 dark:border-stone-600/50 bg-white/50 dark:bg-stone-700/50 backdrop-blur-sm py-3 font-medium text-stone-700 dark:text-stone-200 transition hover:bg-white/70 dark:hover:bg-stone-600/60 active:scale-[0.98]" on:click={() => (showEditSceneModal = null)}>
         {t.close}
       </button>
       <button type="button" class="flex-1 rounded-xl bg-accent py-3 font-medium text-white transition hover:bg-accent-hover active:scale-[0.98]" on:click={saveSceneEdit}>
@@ -731,7 +742,7 @@
     <h2 id="delete-scene-title" class="font-display text-lg font-semibold text-stone-800 dark:text-stone-100">{t.sceneDelete}</h2>
     <p class="mt-2 text-sm text-stone-600 dark:text-stone-400">{t.sceneDeleteConfirm(showDeleteSceneConfirm.name)}</p>
     <div class="mt-6 flex gap-3">
-      <button type="button" class="flex-1 rounded-xl bg-stone-100 dark:bg-stone-700 py-3 font-medium text-stone-700 dark:text-stone-200 transition hover:bg-stone-200 dark:hover:bg-stone-600 active:scale-[0.98]" on:click={() => (showDeleteSceneConfirm = null)}>
+      <button type="button" class="flex-1 rounded-xl border border-white/20 dark:border-stone-600/50 bg-white/50 dark:bg-stone-700/50 backdrop-blur-sm py-3 font-medium text-stone-700 dark:text-stone-200 transition hover:bg-white/70 dark:hover:bg-stone-600/60 active:scale-[0.98]" on:click={() => (showDeleteSceneConfirm = null)}>
         {t.cancel}
       </button>
       <button type="button" class="flex-1 rounded-xl bg-red-600 py-3 font-medium text-white transition hover:bg-red-700 active:scale-[0.98]" on:click={confirmDeleteScene}>

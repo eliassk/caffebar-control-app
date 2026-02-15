@@ -18,7 +18,7 @@
     aria-labelledby={titleId || undefined}
     on:click={handleBackdrop}
   >
-    <div class="w-full max-w-sm rounded-2xl border border-stone-200 dark:border-stone-600 dark:bg-stone-800 bg-white p-6 shadow-soft-lg">
+    <div class="w-full max-w-sm rounded-2xl border border-white/20 dark:border-stone-600/50 bg-white/90 dark:bg-stone-800/90 backdrop-blur-xl p-6 shadow-glass">
       <slot />
     </div>
   </div>

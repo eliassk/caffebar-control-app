@@ -15,7 +15,7 @@
 {#if onSelect}
   <button
     type="button"
-    class="relative w-full overflow-hidden rounded-2xl border border-stone-200/80 dark:border-stone-600 dark:bg-stone-800 bg-surface-card p-4 text-left shadow-soft transition hover:shadow-soft-lg focus:outline-none focus:ring-2 focus:ring-stone-300/50 dark:focus:ring-stone-500/50 active:scale-[0.99]"
+    class="relative w-full overflow-hidden rounded-2xl border border-white/20 dark:border-stone-600/50 bg-white/60 dark:bg-stone-800/60 backdrop-blur-xl p-4 text-left shadow-glass transition hover:shadow-soft-lg focus:outline-none focus:ring-2 focus:ring-stone-300/50 dark:focus:ring-stone-500/50 active:scale-[0.99]"
     on:click={onSelect}
   >
     <div class="flex items-start justify-between gap-3">

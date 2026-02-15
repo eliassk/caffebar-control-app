@@ -1,5 +1,3 @@
-import { isEntityAllowed } from "./allowlist.js";
-
 export interface DemoState {
   entity_id: string;
   state: string;
@@ -429,14 +427,12 @@ function clone(e: DemoState): DemoState {
   };
 }
 
+/** Returns all demo entities so every card type is visible in demo mode (no allowlist filter). */
 export function getDemoStates(): DemoState[] {
-  return DEMO_ENTITIES.filter((e) => isEntityAllowed(e.entity_id))
-    .map((e) => state.get(e.entity_id) ?? e)
-    .map(clone);
+  return DEMO_ENTITIES.map((e) => state.get(e.entity_id) ?? e).map(clone);
 }
 
 export function getDemoState(entityId: string): DemoState | null {
-  if (!isEntityAllowed(entityId)) return null;
   const e = state.get(entityId);
   return e ? clone(e) : null;
 }

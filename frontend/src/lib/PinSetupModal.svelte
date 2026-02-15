@@ -13,6 +13,8 @@
   let wrong = false;
   let mismatch = false;
   let shake = false;
+  let saveError = "";
+  let saving = false;
 
   $: promptText =
     step === "current"
@@ -27,6 +29,7 @@
     if (digits.length >= PIN_LENGTH) return;
     wrong = false;
     mismatch = false;
+    saveError = "";
     digits += d;
     if (digits.length === PIN_LENGTH) {
       handleComplete();
@@ -37,6 +40,7 @@
     digits = digits.slice(0, -1);
     wrong = false;
     mismatch = false;
+    saveError = "";
   }
 
   async function handleComplete() {
@@ -57,6 +61,7 @@
       firstPin = digits;
       digits = "";
       step = "confirm";
+      saveError = "";
       return;
     }
     if (step === "confirm") {
@@ -69,23 +74,41 @@
         setTimeout(() => (shake = false), 400);
         return;
       }
-      await pinStore.setPin(digits);
-      onSuccess();
-      onClose();
+      saving = true;
+      saveError = "";
+      try {
+        await pinStore.setPin(digits);
+        onSuccess();
+        onClose();
+      } catch (err) {
+        saveError = err instanceof Error ? err.message : t.pinSaveError;
+        if (!saveError || saveError.length > 200) saveError = t.pinSaveError;
+        digits = "";
+        firstPin = "";
+        step = "new";
+      } finally {
+        saving = false;
+      }
       return;
     }
   }
 
   async function confirmRemove() {
-    await pinStore.removePin();
-    onSuccess();
-    onClose();
+    saveError = "";
+    try {
+      await pinStore.removePin();
+      onSuccess();
+      onClose();
+    } catch (err) {
+      saveError = err instanceof Error ? err.message : t.pinRemoveError;
+      if (!saveError || saveError.length > 200) saveError = t.pinRemoveError;
+    }
   }
 </script>
 
 <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
 <div
-  class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 dark:bg-black/60 p-4"
+  class="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-md bg-white/30 dark:bg-stone-950/50"
   role="dialog"
   aria-modal="true"
   aria-labelledby="pin-setup-title"
@@ -93,7 +116,7 @@
   on:keydown={(e) => e.key === "Escape" && onClose()}
 >
   <div
-    class="w-full max-w-sm rounded-2xl border border-stone-200 dark:border-stone-600 dark:bg-stone-800 bg-white p-6 shadow-soft-lg"
+    class="w-full max-w-sm rounded-2xl border border-white/25 dark:border-stone-600/50 bg-white/80 dark:bg-stone-800/80 backdrop-blur-xl p-6 shadow-glass"
     role="document"
     on:click|stopPropagation
     on:keydown={() => {}}
@@ -129,6 +152,12 @@
     {#if mismatch}
       <p class="text-center text-sm text-red-600 dark:text-red-400 mb-2">{t.pinMismatch}</p>
     {/if}
+    {#if saveError}
+      <p class="text-center text-sm text-red-600 dark:text-red-400 mb-2">{saveError}</p>
+    {/if}
+    {#if saving}
+      <p class="text-center text-sm text-stone-500 dark:text-stone-400 mb-2">{t.pinSaving}</p>
+    {/if}
     <div class="grid grid-cols-3 gap-2 max-w-[200px] mx-auto">
       {#each [1, 2, 3, 4, 5, 6, 7, 8, 9, "", 0, "back"] as key}
         {#if key === ""}
@@ -136,7 +165,7 @@
         {:else if key === "back"}
           <button
             type="button"
-            class="flex h-12 items-center justify-center rounded-xl bg-stone-200 dark:bg-stone-700 text-stone-700 dark:text-stone-200 transition hover:bg-stone-300 dark:hover:bg-stone-600 active:scale-95"
+            class="flex h-12 items-center justify-center rounded-xl border border-white/25 dark:border-stone-600/50 bg-white/50 dark:bg-stone-700/50 backdrop-blur-md text-stone-700 dark:text-stone-200 transition hover:bg-white/70 dark:hover:bg-stone-600/60 active:scale-95"
             aria-label="Backspace"
             on:click={backspace}
           >
@@ -151,7 +180,7 @@
         {:else}
           <button
             type="button"
-            class="flex h-12 items-center justify-center rounded-xl bg-stone-100 dark:bg-stone-800 text-stone-800 dark:text-stone-100 text-lg font-medium transition hover:bg-stone-200 dark:hover:bg-stone-700 active:scale-95"
+            class="flex h-12 items-center justify-center rounded-xl border border-white/25 dark:border-stone-600/50 bg-white/50 dark:bg-stone-700/50 backdrop-blur-md text-stone-800 dark:text-stone-100 text-lg font-medium transition hover:bg-white/70 dark:hover:bg-stone-600/60 active:scale-95"
             on:click={() => addDigit(String(key))}
           >
             {key}
@@ -163,7 +192,7 @@
     <div class="flex gap-3 mt-4">
       <button
         type="button"
-        class="flex-1 rounded-xl bg-stone-100 dark:bg-stone-700 py-2.5 text-sm font-medium text-stone-700 dark:text-stone-200 transition hover:bg-stone-200 dark:hover:bg-stone-600"
+        class="flex-1 rounded-xl border border-white/25 dark:border-stone-600/50 bg-white/50 dark:bg-stone-700/50 backdrop-blur-md py-2.5 text-sm font-medium text-stone-700 dark:text-stone-200 transition hover:bg-white/70 dark:hover:bg-stone-600/60"
         on:click={onClose}
       >
         {t.cancel}
@@ -180,7 +209,7 @@
     {#if step !== "removeConfirm"}
     <button
       type="button"
-      class="mt-4 w-full rounded-xl bg-stone-100 dark:bg-stone-700 py-2.5 text-sm font-medium text-stone-700 dark:text-stone-200 transition hover:bg-stone-200 dark:hover:bg-stone-600"
+      class="mt-4 w-full rounded-xl border border-white/25 dark:border-stone-600/50 bg-white/50 dark:bg-stone-700/50 backdrop-blur-md py-2.5 text-sm font-medium text-stone-700 dark:text-stone-200 transition hover:bg-white/70 dark:hover:bg-stone-600/60"
       on:click={onClose}
     >
       {t.cancel}

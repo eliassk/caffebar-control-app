@@ -13,9 +13,9 @@
 
 <button
   type="button"
-  class="relative w-full overflow-hidden rounded-2xl border border-stone-200/80 dark:border-stone-600 p-4 text-left shadow-soft transition hover:shadow-soft-lg active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-stone-300/50 dark:focus:ring-stone-500/50 disabled:opacity-60 {isOn
-    ? 'bg-amber-50/90 dark:bg-amber-900/30'
-    : 'bg-stone-50/90 dark:bg-stone-800'}"
+  class="relative w-full overflow-hidden rounded-2xl border border-white/20 dark:border-stone-600/50 bg-white/80 dark:bg-stone-800/80 backdrop-blur-xl p-4 text-left shadow-glass transition hover:shadow-soft-lg active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-stone-300/50 dark:focus:ring-stone-500/50 disabled:opacity-60 {isOn
+    ? '!bg-amber-50/90 dark:!bg-amber-900/50'
+    : ''}"
   disabled={busy || unavailable}
   on:click={() => !unavailable && onToggle()}
 >

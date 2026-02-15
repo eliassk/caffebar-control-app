@@ -4,7 +4,7 @@
 </script>
 
 <div
-  class="overflow-hidden rounded-2xl border border-stone-200/80 dark:border-stone-600 dark:bg-stone-800 bg-surface-card shadow-soft transition hover:shadow-soft-lg {padded ? 'p-4' : ''} {className}"
+  class="overflow-hidden rounded-2xl border border-white/20 dark:border-stone-600/50 bg-white/60 dark:bg-stone-800/60 backdrop-blur-xl shadow-glass transition hover:shadow-soft-lg {padded ? 'p-4' : ''} {className}"
 >
   <slot />
 </div>

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { Lightbulb } from "lucide-svelte";
   import { t } from "$lib/i18n";
   import type { CoffeeEntity } from "$lib/api";
   import { callService } from "$lib/api";
@@ -44,17 +45,6 @@
     }
   }
 
-  async function toggle(e: MouseEvent) {
-    e.stopPropagation();
-    if (unavailable || busy) return;
-    if (isOn) {
-      await callService("light", "turn_off", entity.entity_id);
-    } else {
-      await callService("light", "turn_on", entity.entity_id, { brightness: 255 });
-    }
-    onUpdate();
-  }
-
   async function setBrightness(value: number) {
     if (unavailable || busy) return;
     const num = Number(value);
@@ -67,55 +57,46 @@
     }
     onUpdate();
   }
-
 </script>
 
 <div
-  class="overflow-hidden rounded-2xl border border-stone-200/80 dark:border-stone-600 p-4 shadow-soft transition hover:shadow-soft-lg {isOn
-    ? 'bg-amber-50/90 dark:bg-amber-900/30'
-    : 'bg-stone-50/90 dark:bg-stone-800'}"
+  class="overflow-hidden rounded-2xl border border-white/20 dark:border-stone-600/50 bg-white/80 dark:bg-stone-800/80 backdrop-blur-xl py-4 px-4 shadow-glass transition hover:shadow-soft-lg {isOn
+    ? '!bg-amber-50/90 dark:!bg-amber-900/50'
+    : ''}"
 >
-  <div class="flex items-start justify-between gap-3">
-    <div>
-      <p class="font-display text-2xl font-bold tabular-nums text-stone-800 dark:text-stone-200">
-        {entity.friendly_name}
-      </p>
-      <p class="mt-0.5 text-sm font-medium text-stone-500 dark:text-stone-400">
-        {isOn ? `${sliderValue}%` : t.off}
-      </p>
-    </div>
-    <button
-      type="button"
-      class="shrink-0 disabled:opacity-50"
-      disabled={busy || unavailable}
-      on:click={toggle}
-      aria-label={isOn ? t.ariaTurnOff : t.ariaTurnOn}
-    >
+  <div class="flex min-h-[3.25rem] items-center gap-4">
+    <div class="flex min-w-0 flex-1 items-center gap-4">
       <span
-        class="inline-flex h-7 w-12 rounded-full transition {isOn
-          ? 'bg-emerald-500'
-          : 'bg-stone-200 dark:bg-stone-600'}"
+        class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition {isOn
+          ? 'bg-amber-400/50 text-stone-700 dark:text-stone-200'
+          : 'bg-stone-400/25 text-stone-500 dark:text-stone-400'}"
+        aria-hidden="true"
       >
-        <span
-          class="block h-5 w-5 translate-y-1 rounded-full bg-white shadow-sm transition {isOn
-            ? 'translate-x-7'
-            : 'translate-x-1'}"
-        ></span>
+        <Lightbulb class="h-5 w-5" />
       </span>
-    </button>
-  </div>
-  <div class="mt-4">
-    <input
-      type="range"
-      min="0"
-      max="100"
-      bind:value={sliderValue}
-      on:input={scheduleBrightnessUpdate}
-      on:change={finishInteraction}
-      on:mouseup={finishInteraction}
-      on:touchend={finishInteraction}
-      disabled={busy || unavailable}
-      class="h-2.5 w-full appearance-none rounded-full bg-stone-200/80 dark:bg-stone-600/80 disabled:opacity-50"
-    />
+      <div class="min-w-0 max-w-[12rem] shrink-0">
+        <p class="font-display text-xl font-bold text-stone-900 dark:text-white truncate" title={entity.friendly_name}>
+          {entity.friendly_name}
+        </p>
+        <p class="mt-0.5 text-sm font-medium text-stone-500 dark:text-stone-400">
+          {isOn ? `${sliderValue}%` : t.off}
+        </p>
+      </div>
+    </div>
+    <div class="flex min-w-0 flex-[2] items-center justify-end">
+      <input
+        type="range"
+        min="0"
+        max="100"
+        bind:value={sliderValue}
+        on:input={scheduleBrightnessUpdate}
+        on:change={finishInteraction}
+        on:mouseup={finishInteraction}
+        on:touchend={finishInteraction}
+        disabled={busy || unavailable}
+        class="glass-slider glass-slider-touch w-full appearance-none rounded-full disabled:opacity-50"
+        style="--slider-pct: {sliderValue}%"
+      />
+    </div>
   </div>
 </div>

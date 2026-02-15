@@ -1,8 +1,8 @@
 <script lang="ts">
   import { t } from "$lib/i18n";
   import {
-    Thermometer, Sun, Flame, Lightbulb, Loader2,
-    CheckSquare, Square,
+    Thermometer, Sun, Flame, Lightbulb, Loader2, Power,
+    CheckSquare, Square, Settings,
   } from "lucide-svelte";
   import type { CoffeeEntity, Scene } from "$lib/api";
   import type { ClimateAttributes } from "$lib/types";
@@ -14,6 +14,8 @@
   export let scenes: Scene[];
   export let sceneBusy: string | null;
   export let onRunScene: (scene: Scene) => void;
+  export let onBlackout: (() => void) | undefined = undefined;
+  export let onOpenChecklistSettings: (() => void) | undefined = undefined;
 
   // --- Derived entity groups ---
   $: tempSensors = entities.filter(
@@ -77,18 +79,51 @@
 </script>
 
 <div class="mx-auto max-w-2xl">
-  <div class="rounded-2xl border border-stone-200/80 dark:border-stone-600 dark:bg-stone-800 bg-white p-8 shadow-soft">
+  <div class="rounded-2xl border border-white/20 dark:border-stone-600/50 bg-white/60 dark:bg-stone-800/60 backdrop-blur-xl p-8 shadow-glass">
     <h1 class="font-display text-2xl font-bold text-stone-800 dark:text-stone-100">
       {$customWelcome?.title ?? t.welcomeTitle}
     </h1>
-    <p class="mt-2 text-stone-600 dark:text-stone-400">
-      {$customWelcome?.desc ?? t.welcomeDesc}
-    </p>
+
+    <!-- Status badges -->
+    <div class="mt-6 flex flex-wrap gap-3">
+      {#if primaryTempValue != null}
+        <span class="inline-flex items-center gap-2 rounded-xl border border-white/30 dark:border-stone-600/40 bg-white/50 dark:bg-stone-800/50 backdrop-blur-md px-3 py-2 text-sm font-medium text-stone-700 dark:text-stone-300">
+          <Thermometer class="h-4 w-4 text-stone-500 dark:text-stone-400" />
+          {primaryTempValue}°
+        </span>
+      {/if}
+      {#if hvacState}
+        <span class="inline-flex items-center gap-2 rounded-xl border border-white/30 dark:border-stone-600/40 bg-white/50 dark:bg-stone-800/50 backdrop-blur-md px-3 py-2 text-sm font-medium text-stone-700 dark:text-stone-300">
+          <Sun class="h-4 w-4 text-stone-500 dark:text-stone-400" />
+          {hvacState}{#if hvacTargetTemp != null} · {hvacTargetTemp}°{/if}
+        </span>
+      {/if}
+      {#if primaryFloor}
+        <span class="inline-flex items-center gap-2 rounded-xl border border-white/30 dark:border-stone-600/40 bg-white/50 dark:bg-stone-800/50 backdrop-blur-md px-3 py-2 text-sm font-medium text-stone-700 dark:text-stone-300">
+          <Flame class="h-4 w-4 text-stone-500 dark:text-stone-400" />
+          {floorIsOn ? t.on : t.off}{#if floorTargetTemp != null} · {floorTargetTemp}°{/if}
+        </span>
+      {/if}
+      <span class="inline-flex items-center gap-2 rounded-xl border border-white/30 dark:border-stone-600/40 bg-white/50 dark:bg-stone-800/50 backdrop-blur-md px-3 py-2 text-sm font-medium text-stone-700 dark:text-stone-300">
+        <Lightbulb class="h-4 w-4 text-stone-500 dark:text-stone-400" />
+        {t.lightsOn(lightsOn)}
+      </span>
+    </div>
 
     <!-- Checklist -->
     {#if $checklistWithState.length > 0}
-      <div class="mt-6 rounded-xl border border-stone-200/60 dark:border-stone-600 dark:bg-stone-800/50 p-4">
-        <p class="mb-2 text-xs font-medium uppercase tracking-wider text-stone-500 dark:text-stone-400">
+      <div class="relative mt-8 rounded-xl border border-white/20 dark:border-stone-600/40 bg-white/40 dark:bg-stone-800/40 backdrop-blur-md p-4">
+        {#if onOpenChecklistSettings}
+          <button
+            type="button"
+            class="absolute top-3 right-3 flex h-8 w-8 items-center justify-center rounded-lg text-stone-400/60 dark:text-stone-500/60 transition hover:text-stone-500 dark:hover:text-stone-400 hover:bg-white/30 dark:hover:bg-stone-700/30"
+            aria-label={t.navSettings}
+            on:click={() => onOpenChecklistSettings()}
+          >
+            <Settings class="h-4 w-4" />
+          </button>
+        {/if}
+        <p class="mb-2 text-xs font-medium uppercase tracking-wider text-stone-500 dark:text-stone-400 pr-10">
           {t.checklistTitle}
         </p>
         <ul class="space-y-2">
@@ -96,7 +131,7 @@
             <li>
               <button
                 type="button"
-                class="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm transition hover:bg-white/80 dark:hover:bg-stone-700/50 {item.checked
+                class="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm transition hover:bg-white/50 dark:hover:bg-stone-700/40 {item.checked
                   ? 'text-stone-400 dark:text-stone-500 line-through'
                   : 'text-stone-700 dark:text-stone-300'}"
                 on:click={() => toggleChecklistItem(item.id)}
@@ -114,42 +149,16 @@
       </div>
     {/if}
 
-    <!-- At a glance -->
-    <div class="mt-6 flex flex-wrap gap-3">
-      {#if primaryTempValue != null}
-        <span class="inline-flex items-center gap-2 rounded-xl bg-stone-50 dark:bg-stone-800 px-3 py-2 text-sm font-medium text-stone-700 dark:text-stone-300">
-          <Thermometer class="h-4 w-4 text-stone-500" />
-          {primaryTempValue}°
-        </span>
-      {/if}
-      {#if hvacState}
-        <span class="inline-flex items-center gap-2 rounded-xl bg-stone-50 dark:bg-stone-800 px-3 py-2 text-sm font-medium text-stone-700 dark:text-stone-300">
-          <Sun class="h-4 w-4 text-stone-500" />
-          {hvacState}{#if hvacTargetTemp != null} · {hvacTargetTemp}°{/if}
-        </span>
-      {/if}
-      {#if primaryFloor}
-        <span class="inline-flex items-center gap-2 rounded-xl bg-stone-50 dark:bg-stone-800 px-3 py-2 text-sm font-medium text-stone-700 dark:text-stone-300">
-          <Flame class="h-4 w-4 text-stone-500" />
-          {floorIsOn ? t.on : t.off}{#if floorTargetTemp != null} · {floorTargetTemp}°{/if}
-        </span>
-      {/if}
-      <span class="inline-flex items-center gap-2 rounded-xl bg-stone-50 dark:bg-stone-800 px-3 py-2 text-sm font-medium text-stone-700 dark:text-stone-300">
-        <Lightbulb class="h-4 w-4 text-stone-500" />
-        {t.lightsOn(lightsOn)}
-      </span>
-    </div>
-
-    <!-- Scene buttons -->
-    <div class="mt-8 flex flex-col gap-3">
-      {#if scenes.length > 0}
-        <div class="flex flex-wrap gap-3">
+    <!-- Scene buttons + Blackout -->
+    <div class="mt-10 flex flex-col gap-3">
+      <div class="flex flex-wrap gap-3">
+        {#if scenes.length > 0}
           {#each scenes as scene (scene.id)}
             <button
               type="button"
-              class="flex flex-1 min-w-[8rem] items-center justify-center gap-2 rounded-xl border-2 px-4 py-3 font-medium shadow-soft transition active:scale-[0.98] disabled:opacity-60 {safeColor(scene.color)
-                ? 'border-transparent text-white hover:opacity-90'
-                : 'border-stone-200 dark:border-stone-600 bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-200 hover:bg-stone-50 dark:hover:bg-stone-700 hover:border-stone-300 dark:hover:border-stone-500'}"
+              class="flex flex-1 min-w-[8rem] items-center justify-center gap-2 rounded-xl border px-4 py-3 font-medium shadow-glass transition active:scale-[0.98] disabled:opacity-60 {safeColor(scene.color)
+                ? 'border-white/30 text-white hover:opacity-90'
+                : 'border-white/20 dark:border-stone-600/50 bg-white/50 dark:bg-stone-800/50 backdrop-blur-md text-stone-700 dark:text-stone-200 hover:bg-white/70 dark:hover:bg-stone-700/60'}"
               style={safeColor(scene.color) ? `background-color: ${safeColor(scene.color)}` : ''}
               disabled={sceneBusy !== null}
               on:click={() => onRunScene(scene)}
@@ -162,8 +171,19 @@
               {scene.name}
             </button>
           {/each}
-        </div>
-      {:else}
+        {/if}
+        {#if onBlackout}
+          <button
+            type="button"
+            class="flex flex-1 min-w-[8rem] items-center justify-center gap-2 rounded-xl border border-stone-500/50 bg-stone-700/80 dark:bg-stone-800/80 px-4 py-3 font-medium text-white shadow-glass transition hover:bg-stone-600/90 dark:hover:bg-stone-700/90 active:scale-[0.98]"
+            on:click={() => onBlackout()}
+          >
+            <Power class="h-4 w-4 shrink-0" />
+            {t.blackout}
+          </button>
+        {/if}
+      </div>
+      {#if scenes.length === 0 && !onBlackout}
         <p class="text-sm text-stone-500 dark:text-stone-400">{t.scenesEmpty}</p>
       {/if}
     </div>

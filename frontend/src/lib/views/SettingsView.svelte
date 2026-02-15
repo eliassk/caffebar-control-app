@@ -64,7 +64,7 @@
   <h1 class="font-display text-2xl font-bold text-stone-800 dark:text-stone-100">
     {t.settingsTitle}
   </h1>
-  <div class="mt-6 rounded-2xl border border-stone-200/80 dark:border-stone-600 dark:bg-stone-800 bg-white p-6 shadow-soft">
+  <div class="mt-6 rounded-2xl border border-white/20 dark:border-stone-600/50 bg-white/60 dark:bg-stone-800/60 backdrop-blur-xl p-6 shadow-glass">
     <div class="space-y-4">
       <!-- Theme -->
       <div role="group" aria-label={t.settingsTheme}>
@@ -193,7 +193,7 @@
           id="welcome-title"
           type="text"
           bind:value={settingsTitleInput}
-          class="mt-1.5 w-full rounded-xl border border-stone-200 dark:border-stone-600 dark:bg-stone-700 bg-white px-4 py-2.5 text-stone-800 dark:text-stone-200 placeholder-stone-400 dark:placeholder-stone-500 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+          class="mt-1.5 w-full rounded-xl border border-white/30 dark:border-stone-600/50 bg-white/50 dark:bg-stone-700/50 px-4 py-2.5 text-stone-800 dark:text-stone-200 placeholder-stone-400 dark:placeholder-stone-500 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
           placeholder={t.welcomeTitle}
         />
       </div>
@@ -205,14 +205,14 @@
           id="welcome-desc"
           bind:value={settingsDescInput}
           rows="3"
-          class="mt-1.5 w-full resize-none rounded-xl border border-stone-200 dark:border-stone-600 dark:bg-stone-700 bg-white px-4 py-2.5 text-stone-800 dark:text-stone-200 placeholder-stone-400 dark:placeholder-stone-500 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+          class="mt-1.5 w-full resize-none rounded-xl border border-white/30 dark:border-stone-600/50 bg-white/50 dark:bg-stone-700/50 px-4 py-2.5 text-stone-800 dark:text-stone-200 placeholder-stone-400 dark:placeholder-stone-500 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
           placeholder={t.welcomeDesc}
         ></textarea>
       </div>
 
       <!-- Checklist management -->
-      <div class="border-t border-stone-200 pt-6">
-        <label for="checklist-add" class="block text-sm font-medium text-stone-600">{t.checklistTitle}</label>
+      <div id="settings-checklist" class="border-t border-stone-200 dark:border-stone-600 pt-6">
+        <label for="checklist-add" class="block text-sm font-medium text-stone-600 dark:text-stone-400">{t.checklistTitle}</label>
         <p class="mt-0.5 text-xs text-stone-500">{t.checklistHelp}</p>
         <div class="mt-2 flex gap-2">
           <input
@@ -220,7 +220,7 @@
             type="text"
             bind:value={checklistNewItem}
             placeholder={t.checklistAddPlaceholder}
-            class="flex-1 rounded-xl border border-stone-200 dark:border-stone-600 dark:bg-stone-700 bg-white px-4 py-2.5 text-stone-800 dark:text-stone-200 placeholder-stone-400 dark:placeholder-stone-500 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+            class="flex-1 rounded-xl border border-white/30 dark:border-stone-600/50 bg-white/50 dark:bg-stone-700/50 px-4 py-2.5 text-stone-800 dark:text-stone-200 placeholder-stone-400 dark:placeholder-stone-500 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
             on:keydown={(e) => e.key === "Enter" && addChecklistItem()}
           />
           <button

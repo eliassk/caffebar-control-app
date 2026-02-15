@@ -42,15 +42,19 @@
 </script>
 
 <div
-  class="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-surface dark:bg-stone-900 p-6"
+  class="fixed inset-0 z-[100] flex flex-col items-center justify-center p-6 backdrop-blur-2xl bg-gradient-to-b from-white/50 via-white/40 to-stone-200/40 dark:from-stone-900/70 dark:via-stone-900/60 dark:to-stone-950/70"
   role="dialog"
   aria-modal="true"
   aria-labelledby="pin-title"
 >
-  <div class="flex flex-col items-center gap-8 max-w-sm w-full">
+  <div
+    class="flex flex-col items-center gap-8 max-w-sm w-full rounded-3xl border border-white/25 dark:border-stone-600/50 bg-white/70 dark:bg-stone-800/70 backdrop-blur-xl shadow-glass py-10 px-8"
+  >
     <div class="flex items-center gap-2">
-      <div class="flex h-12 w-12 items-center justify-center rounded-full bg-accent">
-        <Coffee class="h-7 w-7 text-white" />
+      <div
+        class="flex h-12 w-12 items-center justify-center rounded-full border border-white/30 dark:border-stone-500/50 bg-white/60 dark:bg-stone-700/60 backdrop-blur-md shadow-sm"
+      >
+        <Coffee class="h-7 w-7 text-accent" />
       </div>
       <span class="font-display text-xl font-semibold text-stone-800 dark:text-stone-200">{t.appName}</span>
     </div>
@@ -84,7 +88,7 @@
         {:else if key === "back"}
           <button
             type="button"
-            class="flex h-14 items-center justify-center rounded-xl bg-stone-200 dark:bg-stone-700 text-stone-700 dark:text-stone-200 font-medium transition hover:bg-stone-300 dark:hover:bg-stone-600 active:scale-95"
+            class="flex h-14 items-center justify-center rounded-xl border border-white/25 dark:border-stone-600/50 bg-white/50 dark:bg-stone-700/50 backdrop-blur-md text-stone-700 dark:text-stone-200 font-medium transition hover:bg-white/70 dark:hover:bg-stone-600/60 active:scale-95"
             aria-label="Backspace"
             on:click={backspace}
           >
@@ -99,7 +103,7 @@
         {:else}
           <button
             type="button"
-            class="flex h-14 items-center justify-center rounded-xl bg-stone-100 dark:bg-stone-800 text-stone-800 dark:text-stone-100 text-xl font-medium transition hover:bg-stone-200 dark:hover:bg-stone-700 active:scale-95"
+            class="flex h-14 items-center justify-center rounded-xl border border-white/25 dark:border-stone-600/50 bg-white/50 dark:bg-stone-700/50 backdrop-blur-md text-stone-800 dark:text-stone-100 text-xl font-medium transition hover:bg-white/70 dark:hover:bg-stone-600/60 active:scale-95"
             on:click={() => addDigit(String(key))}
           >
             {key}
