@@ -16,6 +16,8 @@
   export let onRunScene: (scene: Scene) => void;
   export let onBlackout: (() => void) | undefined = undefined;
   export let onOpenChecklistSettings: (() => void) | undefined = undefined;
+  /** When user clicks a status badge, navigate to the related view. */
+  export let onBadgeClick: ((view: "temperature" | "hvac" | "lighting") => void) | undefined = undefined;
 
   // --- Derived entity groups ---
   $: tempSensors = entities.filter(
@@ -84,30 +86,46 @@
       {$customWelcome?.title ?? t.welcomeTitle}
     </h1>
 
-    <!-- Status badges -->
+    <!-- Status badges (click to go to related view) -->
     <div class="mt-6 flex flex-wrap gap-3">
       {#if primaryTempValue != null}
-        <span class="inline-flex items-center gap-2 rounded-xl border border-white/30 dark:border-stone-600/40 bg-white/50 dark:bg-stone-800/50 backdrop-blur-md px-3 py-2 text-sm font-medium text-stone-700 dark:text-stone-300">
+        <button
+          type="button"
+          class="inline-flex items-center gap-2 rounded-xl border border-white/30 dark:border-stone-600/40 bg-white/50 dark:bg-stone-800/50 backdrop-blur-md px-3 py-2 text-sm font-medium text-stone-700 dark:text-stone-300 transition hover:bg-white/70 dark:hover:bg-stone-700/70 cursor-pointer"
+          on:click={() => onBadgeClick?.("temperature")}
+        >
           <Thermometer class="h-4 w-4 text-stone-500 dark:text-stone-400" />
           {primaryTempValue}°
-        </span>
+        </button>
       {/if}
       {#if hvacState}
-        <span class="inline-flex items-center gap-2 rounded-xl border border-white/30 dark:border-stone-600/40 bg-white/50 dark:bg-stone-800/50 backdrop-blur-md px-3 py-2 text-sm font-medium text-stone-700 dark:text-stone-300">
+        <button
+          type="button"
+          class="inline-flex items-center gap-2 rounded-xl border border-white/30 dark:border-stone-600/40 bg-white/50 dark:bg-stone-800/50 backdrop-blur-md px-3 py-2 text-sm font-medium text-stone-700 dark:text-stone-300 transition hover:bg-white/70 dark:hover:bg-stone-700/70 cursor-pointer"
+          on:click={() => onBadgeClick?.("hvac")}
+        >
           <Sun class="h-4 w-4 text-stone-500 dark:text-stone-400" />
           {hvacState}{#if hvacTargetTemp != null} · {hvacTargetTemp}°{/if}
-        </span>
+        </button>
       {/if}
       {#if primaryFloor}
-        <span class="inline-flex items-center gap-2 rounded-xl border border-white/30 dark:border-stone-600/40 bg-white/50 dark:bg-stone-800/50 backdrop-blur-md px-3 py-2 text-sm font-medium text-stone-700 dark:text-stone-300">
+        <button
+          type="button"
+          class="inline-flex items-center gap-2 rounded-xl border border-white/30 dark:border-stone-600/40 bg-white/50 dark:bg-stone-800/50 backdrop-blur-md px-3 py-2 text-sm font-medium text-stone-700 dark:text-stone-300 transition hover:bg-white/70 dark:hover:bg-stone-700/70 cursor-pointer"
+          on:click={() => onBadgeClick?.("hvac")}
+        >
           <Flame class="h-4 w-4 text-stone-500 dark:text-stone-400" />
           {floorIsOn ? t.on : t.off}{#if floorTargetTemp != null} · {floorTargetTemp}°{/if}
-        </span>
+        </button>
       {/if}
-      <span class="inline-flex items-center gap-2 rounded-xl border border-white/30 dark:border-stone-600/40 bg-white/50 dark:bg-stone-800/50 backdrop-blur-md px-3 py-2 text-sm font-medium text-stone-700 dark:text-stone-300">
+      <button
+        type="button"
+        class="inline-flex items-center gap-2 rounded-xl border border-white/30 dark:border-stone-600/40 bg-white/50 dark:bg-stone-800/50 backdrop-blur-md px-3 py-2 text-sm font-medium text-stone-700 dark:text-stone-300 transition hover:bg-white/70 dark:hover:bg-stone-700/70 cursor-pointer"
+        on:click={() => onBadgeClick?.("lighting")}
+      >
         <Lightbulb class="h-4 w-4 text-stone-500 dark:text-stone-400" />
         {t.lightsOn(lightsOn)}
-      </span>
+      </button>
     </div>
 
     <!-- Checklist -->

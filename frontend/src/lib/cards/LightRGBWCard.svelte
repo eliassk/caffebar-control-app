@@ -439,12 +439,12 @@
   </div>
 
   <!-- White channel slider -->
-  <div class="mt-4 flex flex-col items-end">
-    <div class="mb-1 flex w-2/3 items-center justify-between">
+  <div class="mt-4 flex w-full flex-col">
+    <div class="mb-1 flex items-center justify-between">
       <p class="text-xs font-medium text-stone-400">{t.whiteChannel}</p>
       <p class="text-xs tabular-nums text-stone-400">{whiteSliderValue}%</p>
     </div>
-    <div class="w-2/3">
+    <div class="w-full">
       <input
         type="range"
         min="0"

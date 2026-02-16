@@ -93,6 +93,8 @@ export const t = {
   pinRemove: "Usuń PIN",
   pinRemoveConfirm: "Czy na pewno usunąć PIN?",
   pinLockSection: "Blokada PIN",
+  pinLockWholeApp: "Blokuj całą aplikację kodem PIN",
+  pinLockWholeAppHelp: "Gdy włączone, przy każdym wejściu do aplikacji wymagany jest PIN. Gdy wyłączone, PIN chroni tylko ustawienia.",
   pinSaveError: "Nie udało się zapisać PIN. Sprawdź połączenie z serwerem.",
   pinRemoveError: "Nie udało się usunąć PIN. Sprawdź połączenie z serwerem.",
   pinSaving: "Zapisywanie…",

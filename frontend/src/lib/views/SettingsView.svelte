@@ -6,6 +6,7 @@
   import { checklistItems } from "$lib/checklistStore";
   import { theme } from "$lib/themeStore";
   import { pinStore } from "$lib/pinStore";
+  import { lockAppWithPin } from "$lib/lockAppWithPinStore";
   import PinSetupModal from "$lib/PinSetupModal.svelte";
   import PinLockScreen from "$lib/PinLockScreen.svelte";
   import { safeColor, getSceneIcon } from "$lib/sceneHelpers";
@@ -128,6 +129,21 @@
           >
             {t.pinSet}
           </button>
+        {/if}
+        {#if $pinStore.pinHash}
+          <div class="mt-4 flex items-start gap-3">
+            <input
+              id="lock-whole-app"
+              type="checkbox"
+              bind:checked={$lockAppWithPin}
+              on:change={() => { if ($lockAppWithPin) pinStore.lock(); }}
+              class="mt-1 h-4 w-4 rounded border-stone-300 text-accent focus:ring-accent"
+            />
+            <label for="lock-whole-app" class="flex-1">
+              <span class="block text-sm font-medium text-stone-700 dark:text-stone-300">{t.pinLockWholeApp}</span>
+              <span class="mt-0.5 block text-xs text-stone-500 dark:text-stone-400">{t.pinLockWholeAppHelp}</span>
+            </label>
+          </div>
         {/if}
       </div>
 

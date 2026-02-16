@@ -1,5 +1,6 @@
 <script lang="ts">
   import { pinStore, PIN_LENGTH } from "$lib/pinStore";
+  import { lockAppWithPin } from "$lib/lockAppWithPinStore";
   import { t } from "$lib/i18n";
   import { Lock } from "lucide-svelte";
 
@@ -97,6 +98,7 @@
     saveError = "";
     try {
       await pinStore.removePin();
+      lockAppWithPin.set(false);
       onSuccess();
       onClose();
     } catch (err) {

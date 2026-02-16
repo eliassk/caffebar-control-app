@@ -40,6 +40,9 @@
   import { SCENE_ICON_KEYS, SCENE_ICONS, SCENE_COLORS, getSceneIcon, safeColor } from "$lib/sceneHelpers";
   import OverviewView from "$lib/views/OverviewView.svelte";
   import SettingsView from "$lib/views/SettingsView.svelte";
+  import PinLockScreen from "$lib/PinLockScreen.svelte";
+  import { pinStore } from "$lib/pinStore";
+  import { lockAppWithPin } from "$lib/lockAppWithPinStore";
 
   // ─── Polling & navigation constants ───────────────────────────────
   /** How often to poll entities (ms). Keeps UI in sync when SSE lags. */
@@ -384,6 +387,9 @@
 <!-- ═══════════════════════════════════════════════════════════════════
      LAYOUT
      ═══════════════════════════════════════════════════════════════════ -->
+{#if $lockAppWithPin && $pinStore.pinHash && $pinStore.locked}
+  <PinLockScreen mode="unlock" />
+{:else}
 <div class="flex h-dvh bg-transparent">
   <!-- Backdrop when sidebar open on small screens -->
   <button
@@ -489,6 +495,7 @@
               sidebarOpen = false;
               openSettingsScrollToChecklist = true;
             }}
+            onBadgeClick={(v) => { view = v; sidebarOpen = false; }}
           />
 
         <!-- ─── Settings ──────────────────────────────────────────── -->
@@ -508,30 +515,46 @@
             {view === "lighting" ? t.titleLighting : view === "temperature" ? t.titleTemperature : t.titleHvac}
           </h1>
 
-          <!-- Status badges -->
+          <!-- Status badges (click to go to related view) -->
           <div class="flex flex-wrap items-center gap-2">
             {#if primaryTempValue != null}
-              <span class="inline-flex items-center gap-1.5 rounded-full bg-stone-100 dark:bg-stone-800 px-3 py-1.5 text-sm font-medium text-stone-700 dark:text-stone-300">
+              <button
+                type="button"
+                class="inline-flex items-center gap-1.5 rounded-full bg-stone-100 dark:bg-stone-800 px-3 py-1.5 text-sm font-medium text-stone-700 dark:text-stone-300 transition hover:bg-stone-200 dark:hover:bg-stone-700 cursor-pointer"
+                on:click={() => { view = "temperature"; sidebarOpen = false; }}
+              >
                 <Thermometer class="h-4 w-4 text-stone-500 dark:text-stone-400" />
                 {primaryTempValue}°
-              </span>
+              </button>
             {/if}
             {#if hvacState}
-              <span class="inline-flex items-center gap-1.5 rounded-full bg-stone-100 dark:bg-stone-800 px-3 py-1.5 text-sm font-medium text-stone-700 dark:text-stone-300">
+              <button
+                type="button"
+                class="inline-flex items-center gap-1.5 rounded-full bg-stone-100 dark:bg-stone-800 px-3 py-1.5 text-sm font-medium text-stone-700 dark:text-stone-300 transition hover:bg-stone-200 dark:hover:bg-stone-700 cursor-pointer"
+                on:click={() => { view = "hvac"; sidebarOpen = false; }}
+              >
                 <Sun class="h-4 w-4 text-stone-500 dark:text-stone-400" />
                 {hvacState}{#if hvacTargetTemp != null} · {hvacTargetTemp}°{/if}
-              </span>
+              </button>
             {/if}
             {#if primaryFloor}
-              <span class="inline-flex items-center gap-1.5 rounded-full bg-stone-100 dark:bg-stone-800 px-3 py-1.5 text-sm font-medium text-stone-700 dark:text-stone-300">
+              <button
+                type="button"
+                class="inline-flex items-center gap-1.5 rounded-full bg-stone-100 dark:bg-stone-800 px-3 py-1.5 text-sm font-medium text-stone-700 dark:text-stone-300 transition hover:bg-stone-200 dark:hover:bg-stone-700 cursor-pointer"
+                on:click={() => { view = "hvac"; sidebarOpen = false; }}
+              >
                 <Flame class="h-4 w-4 text-stone-500 dark:text-stone-400" />
                 {floorIsOn ? t.on : t.off}{#if floorTargetTemp != null} · {floorTargetTemp}°{/if}
-              </span>
+              </button>
             {/if}
-            <span class="inline-flex items-center gap-1.5 rounded-full bg-stone-100 dark:bg-stone-800 px-3 py-1.5 text-sm font-medium text-stone-700 dark:text-stone-300">
+            <button
+              type="button"
+              class="inline-flex items-center gap-1.5 rounded-full bg-stone-100 dark:bg-stone-800 px-3 py-1.5 text-sm font-medium text-stone-700 dark:text-stone-300 transition hover:bg-stone-200 dark:hover:bg-stone-700 cursor-pointer"
+              on:click={() => { view = "lighting"; sidebarOpen = false; }}
+            >
               <Lightbulb class="h-4 w-4 text-stone-500 dark:text-stone-400" />
               {t.lightsOnShort(lightsOn)}
-            </span>
+            </button>
           </div>
 
           <!-- Temperature view -->
@@ -625,6 +648,7 @@
     </main>
   </div>
 </div>
+{/if}
 
 <!-- ═══════════════════════════════════════════════════════════════════
      MODALS
